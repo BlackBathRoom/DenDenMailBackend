@@ -1,0 +1,13 @@
+{
+    "include": [
+        "src/**/*.py",
+    ],
+    "exclude": [
+        "**/.venv",
+        "**/node_modules",
+        "**/__pycache__",
+    ],
+    "typeCheckingMode": "standard",
+    "venvPath": ".",
+    "venv": ".venv"
+}

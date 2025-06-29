@@ -1,0 +1,53 @@
+name: 🐛 バグ報告
+description: バグを報告する
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        バグ報告ありがとうございます！以下の項目を埋めてください。
+
+  - type: input
+    id: title
+    attributes:
+      label: バグのタイトル
+      description: 簡潔にバグの内容を記載してください
+      placeholder: "例: ログイン画面でエラーが発生する"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: バグの詳細
+      description: バグの内容を詳しく記載してください
+      placeholder: "例: ログイン画面でメールアドレスを入力後、エラーが表示される"
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 再現手順
+      description: バグが発生する手順を記載してください
+      placeholder: "例: 1. ログイン画面を開く 2. メールアドレスを入力する 3. エラーが表示される"
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: 発生環境
+      description: OSやブラウザなど、バグが発生した環境を記載してください
+      placeholder: "例: Windows 10, Chrome 114"
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期待される動作
+      description: 本来期待される動作を記載してください
+      placeholder: "例: ログイン画面で正常にログインできる"
+    validations:
+      required: true

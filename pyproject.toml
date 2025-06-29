@@ -1,0 +1,18 @@
+[project]
+name = "ai-app-backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.14",
+    "pydantic>=2.11.7",
+]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.2.0",
+    "pyright>=1.1.402",
+    "ruff>=0.12.1",
+    "uvicorn>=0.34.3",
+]
