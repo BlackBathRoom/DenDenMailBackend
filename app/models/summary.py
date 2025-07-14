@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from models.common import BaseSQLModel
 from pydantic import BaseModel
 from sqlmodel import Field, Relationship, SQLModel
+
+from models.common import BaseSQLModel
 
 if TYPE_CHECKING:
     from models.mail import Mail

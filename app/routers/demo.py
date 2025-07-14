@@ -1,5 +1,6 @@
-from dtos.demo import Demo
 from fastapi import APIRouter
+
+from dtos.demo import Demo
 
 router = APIRouter(
     prefix="/demo",
