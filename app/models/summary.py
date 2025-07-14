@@ -1,16 +1,24 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from models.common import BaseSQLModel
-from sqlmodel import Field, SQLModel
+from pydantic import BaseModel
+from sqlmodel import Field, Relationship, SQLModel
+
+if TYPE_CHECKING:
+    from models.mail import Mail
 
 
-class BaseSummary(SQLModel):
+class BaseSummary(BaseModel):
     """サマリのベースモデル.
 
     Attributes:
-        mail_id (int): メールID.
+        message_id (str): メッセージID.
         content (str): サマリ内容.
     """
 
-    mail_id: int = Field(foreign_key="mail.id", index=True)
+    message_id: str
     content: str
 
 
@@ -19,11 +27,17 @@ class Summary(BaseSummary, BaseSQLModel, table=True):
 
     Attributes:
         id (int): サマリID.
-        mail_id (int): メールID.
+        mail_id (str): メールID.外部キーとしてメールテーブルのIDを参照.
+        message_id (str): メッセージID.
         content (str): サマリ内容.
         created_at (datetime): 作成日時.
         updated_at (datetime): 更新日時.
     """
+
+    mail_id: int = Field(index=True, unique=True, foreign_key="mail.id")
+
+    # Relationship to Mail model
+    mail: Mail = Relationship(back_populates="summaries")
 
 
 class SummaryCreate(BaseSummary):
@@ -32,7 +46,7 @@ class SummaryCreate(BaseSummary):
     アプリ内にサマリを新規登録する際に使用されるモデル。
 
     Attributes:
-        mail_id (int): メールID.
+        message_id (str): メッセージID.
         content (str): サマリ内容.
     """
 
@@ -43,8 +57,11 @@ class SummaryRead(BaseSummary):
     アプリ内でサマリを読み取る際に使用されるモデル。
 
     Attributes:
-        mail_id (int): メールID.
+        id (int): サマリID.
+        message_id (str): メッセージID.
         content (str): サマリ内容.
+        created_at (datetime): 作成日時.
+        updated_at (datetime): 更新日時.
     """
 
 
@@ -57,4 +74,4 @@ class SummaryUpdate(SQLModel):
         content (str): サマリ内容.
     """
 
-    content: str
+    content: str | None = None

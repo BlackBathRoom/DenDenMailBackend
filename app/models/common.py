@@ -12,6 +12,9 @@ class BaseSQLModel(SQLModel):
         updated_at (datetime): 更新日時.
     """
 
-    id: int = Field(primary_key=True)
+    id: int | None = Field(primary_key=True)
     created_at: datetime = Field(default_factory=datetime.now)
-    updated_at: datetime = Field(default_factory=datetime.now, sa_column_kwargs={"onupdate": datetime.now})
+    updated_at: datetime = Field(
+        default_factory=datetime.now,
+        sa_column_kwargs={"onupdate": datetime.now},
+    )

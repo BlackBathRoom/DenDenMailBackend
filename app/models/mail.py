@@ -1,11 +1,19 @@
-from datetime import datetime
+from __future__ import annotations
 
-from app_conf import MailVender
+from typing import TYPE_CHECKING
+
 from models.common import BaseSQLModel
-from sqlmodel import Field, SQLModel
+from pydantic import BaseModel, EmailStr
+from sqlmodel import VARCHAR, Column, Field, Relationship, SQLModel
+
+if TYPE_CHECKING:
+    from datetime import datetime
+
+    from app_conf import MailVender
+    from models.summary import Summary
 
 
-class BaseMail(SQLModel):
+class BaseMail(BaseModel):
     """メールのベースモデル.
 
     Attributes:
@@ -13,17 +21,17 @@ class BaseMail(SQLModel):
         subject (str): 件名.
         received_at (datetime): 受信日時.
         sender_name (str): 送信者.
-        sender_address (str): 送信者アドレス.
+        sender_address (pydantic.EmailStr): 送信者アドレス.
         mail_folder (str): フォルダ.
         is_read (bool): 既読フラグ.
         vender (MailVender): メールクライアント名.
     """
 
-    message_id: str = Field(index=True, unique=True)
+    message_id: str
     subject: str
     received_at: datetime
     sender_name: str
-    sender_address: str
+    sender_address: EmailStr
     mail_folder: str
     is_read: bool = False
     vender: MailVender
@@ -46,6 +54,12 @@ class Mail(BaseMail, BaseSQLModel, table=True):
         vender (MailVender): メールクライアント名.
     """
 
+    message_id: str = Field(index=True, unique=True)
+    vender: MailVender = Field(sa_column=Column(VARCHAR))
+
+    # Relationship to Summary model
+    summaries: list[Summary] = Relationship(back_populates="mail")
+
 
 class MailCreate(BaseMail):
     """メール作成用モデル.
@@ -64,7 +78,7 @@ class MailCreate(BaseMail):
     """
 
 
-class MailRead(BaseMail):
+class MailRead(BaseMail, BaseSQLModel):
     """メール読み取り用モデル.
 
     メールを読み取る際に使用されるモデル。
@@ -89,7 +103,9 @@ class MailUpdate(SQLModel):
     メールを更新する際に使用されるモデル。
 
     Attributes:
-        is_read (bool): 既読フラグ.
+        mail_folder (str | None): フォルダ.
+        is_read (bool | None): 既読フラグ.
     """
 
+    mail_folder: str | None = None
     is_read: bool | None = None
