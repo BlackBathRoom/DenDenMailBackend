@@ -52,7 +52,7 @@ class SummaryCreate(BaseSummary):
     """
 
 
-class SummaryRead(BaseSummary):
+class SummaryRead(BaseSummary, BaseSQLModel):
     """サマリ読み取り用モデル.
 
     アプリ内でサマリを読み取る際に使用されるモデル。
