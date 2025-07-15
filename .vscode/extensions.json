@@ -2,5 +2,6 @@
     "recommendations": [
         "ms-python.python",
         "charliermarsh.ruff",
+        "qwtel.sqlite-viewer",
     ]
 }

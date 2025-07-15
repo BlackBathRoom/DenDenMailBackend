@@ -34,10 +34,10 @@ class BaseClientConfig(TypedDict):
     connection_type: str
 
 
-class BaseMailClient(ABC):
+class BaseMailClient[T: BaseClientConfig](ABC):
     """メールクライアントの基底クラス."""
 
-    def __init__(self, config: type[BaseClientConfig]) -> None:
+    def __init__(self, config: T) -> None:
         self.config = config
 
     @abstractmethod
