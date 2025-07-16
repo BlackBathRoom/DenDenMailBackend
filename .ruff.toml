@@ -18,7 +18,9 @@ unfixable = [
     "F401",
     "F841",
 ]
-pydocstyle.convention = "google"
+
+[lint.pydocstyle]
+convention = "google"
 
 [lint.per-file-ignores]
 "tests/**/*.py" = [
@@ -27,6 +29,16 @@ pydocstyle.convention = "google"
     "N802",
     "ARG",
 ]
+"study/**/*.py" = ["ALL"]
 
 [lint.pylint]
 max-args = 6
+
+[lint.isort]
+known-first-party = [
+    "models", "dtos", "routes", "services", "utils", "websocket_routers", "app_conf"
+]
+force-single-line = false
+force-sort-within-sections = false
+split-on-trailing-comma = true
+lines-between-types = 1
