@@ -1,4 +1,4 @@
-# AI App Backend Template
+# でんでんメール Backend
 
 以下は生成AIを使用し作成しています。
 
@@ -7,22 +7,19 @@
 ---
 
 ## 必要条件
-- **Python**: バージョン 3.12
+- **Python**: バージョン 3.12 (uvを入れることで直接的なインストールは不要です)
 - **Windows**: 開発環境として Windows を想定しています
 
 ---
 
 ## セットアップ手順
 
-### 0. リポジトリの作成、クローン
-このテンプレートを基にリポジトリを作成してください
-
 #### sshキーの登録
 sshキーを取得していない場合は[こちら](https://zenn.dev/aoikoala/articles/388eb861249780#3.-ssh%E3%82%AD%E3%83%BC%E3%81%AE%E7%94%9F%E6%88%90)を参考に取得してください
 
 #### リポジトリのクローン
 ```bash
-git clone git@github.com:Your_name_or_Organization/your_repository.git
+git clone git@github.com:BlackBathRoom/DenDenMailBackend.git
 ```
 
 ### 1. UV のインストール
