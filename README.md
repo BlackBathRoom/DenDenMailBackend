@@ -42,7 +42,7 @@ uv run pre-commit install
 FastAPI の開発サーバーを起動するには、`app`直下に移動し以下のコマンドを実行してください。
 
 ```bash
-uv run uvicorn app.main:main --reload
+uv run uvicorn main:app --reload
 ```
 
 `main.py`を実行しても開発サーバを起動できます。
