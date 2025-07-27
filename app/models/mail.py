@@ -1,16 +1,14 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING
 
+from app_conf import MailVender
+from models.common import BaseSQLModel
 from pydantic import BaseModel, EmailStr
 from sqlmodel import VARCHAR, Column, Field, Relationship, SQLModel
 
-from models.common import BaseSQLModel
-
 if TYPE_CHECKING:
-    from datetime import datetime
-
-    from app_conf import MailVender
     from models.summary import Summary
 
 
