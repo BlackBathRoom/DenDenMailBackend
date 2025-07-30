@@ -94,22 +94,21 @@ class BaseDBManager[TBaseModel: SQLModel, TCreate: BaseModel, TRead: SQLModel, T
             session.add(create_obj)
             session.commit()
 
-    def _read(self, engine: Engine, obj_id: int) -> TBaseModel | None:
+    def _read(self, engine: Engine, obj_id: int, factory: type[TRead]) -> TRead | None:
         """IDでレコードを読み取る.
 
         readメソッドの内部で使用.
 
         ```python
         def read(self, engine: Engine, obj_id: int) -> TRead | None:
-            obj = self._read(engine, obj_id)
-            if obj:
-                return self._convert_model(obj, factory=HogeRead)  # 読み取りモデルをfactoryに指定
-            return None
+            # factoryに読み取りモデルを指定して呼び出す
+            return self._read(engine, obj_id, factory=HogeRead)
         ```
 
         Args:
             engine (Engine): SQLAlchemyエンジン.
             obj_id (int): 読み取り対象のオブジェクトID.
+            factory (type[TRead]): 読み取りモデル.
 
         Returns:
             TBaseModel | None: 読み取ったオブジェクト.存在しない場合はNone.
@@ -117,7 +116,7 @@ class BaseDBManager[TBaseModel: SQLModel, TCreate: BaseModel, TRead: SQLModel, T
         with Session(engine) as session:
             obj = session.get(self.model, obj_id)
             if obj:
-                return obj
+                return self._convert_model(obj, factory=factory)
             return None
 
     @abstractmethod
