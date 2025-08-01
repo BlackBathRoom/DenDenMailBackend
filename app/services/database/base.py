@@ -115,7 +115,7 @@ class BaseDBManager[TBaseModel: SQLModel, TCreate: BaseModel, TRead: SQLModel, T
         with Session(engine) as session:
             existing_obj = session.get(self.model, obj_id)
             if existing_obj:
-                for key, value in obj.model_dump().items():
+                for key, value in obj.model_dump(exclude_unset=True).items():
                     setattr(existing_obj, key, value)
                 session.commit()
             else:
