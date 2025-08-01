@@ -83,7 +83,7 @@ class BaseDBManager[TBaseModel: SQLModel, TCreate: BaseModel, TRead: SQLModel, T
             factory (type[TRead]): 読み取りモデル.
 
         Returns:
-            TBaseModel | None: 読み取ったオブジェクト.存在しない場合はNone.
+            TRead | None: 読み取ったオブジェクト.存在しない場合はNone.
         """
         with Session(engine) as session:
             obj = session.get(self.model, obj_id)
