@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-from datetime import datetime
 from typing import TYPE_CHECKING
 
-from app_conf import MailVender
-from models.common import BaseSQLModel
 from pydantic import BaseModel, EmailStr
 from sqlmodel import VARCHAR, Column, Field, Relationship, SQLModel
 
+from app_conf import MailVender  # noqa: TC001 # pydanticの型チェックのために必要
+from models.common import BaseSQLModel
+
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from models.summary import Summary
 
 
