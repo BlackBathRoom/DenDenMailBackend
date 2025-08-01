@@ -1,44 +1,16 @@
 """データベース関連のサービス層."""
 
 from abc import ABC, abstractmethod
-from collections.abc import Generator
 from typing import overload
 
 from pydantic import BaseModel, ValidationError
 from sqlalchemy import Engine
 from sqlmodel import Session, SQLModel
 
-from app_conf import engine
 from utils.check_implementation import check_implementation
 from utils.log_config import get_logger
 
 logger = get_logger(__name__)
-
-
-def create_tables() -> None:
-    """全てのテーブルを作成する."""
-    SQLModel.metadata.create_all(engine)
-
-
-def get_session() -> Generator[Session, None, None]:
-    """データベースセッションを取得する.
-
-    依存性注入で使用される関数。
-
-    Yields:
-        Session: SQLModelデータベースセッション
-    """
-    with Session(engine) as session:
-        yield session
-
-
-def get_db_session() -> Session:
-    """直接データベースセッションを取得する.
-
-    Returns:
-        Session: SQLModelデータベースセッション
-    """
-    return Session(engine)
 
 
 class BaseDBManager[TBaseModel: SQLModel, TCreate: BaseModel, TRead: SQLModel, TUpdate: BaseModel](ABC):
