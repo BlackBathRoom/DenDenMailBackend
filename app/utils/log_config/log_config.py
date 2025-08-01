@@ -1,3 +1,9 @@
+from pathlib import Path
+
+# ログディレクトリのパスを作成
+LOG_DIR = Path(__file__).parent.parent.parent.parent / "log"
+LOG_DIR.mkdir(exist_ok=True)
+
 LOG_CONFIG = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -15,15 +21,17 @@ LOG_CONFIG = {
             "stream": "ext://sys.stdout",
         },
         "file": {
-            "class": "logging.FileHandler",
+            "class": "logging.handlers.RotatingFileHandler",
             "formatter": "default",
             "level": "DEBUG",
-            "filename": "app.log",
+            "filename": str(LOG_DIR / "app.log"),
+            "maxBytes": 10485760,  # 10MB
+            "backupCount": 5,
         },
     },
     "loggers": {
         "__main__": {
-            "handlers": ["console"],
+            "handlers": ["console", "file"],
             "level": "DEBUG",
             "propagate": False,
         },
