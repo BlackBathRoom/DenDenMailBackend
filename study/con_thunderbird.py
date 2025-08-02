@@ -5,7 +5,7 @@ import email.header
 import email.utils
 import email.message
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Any
 import platform
 
@@ -106,8 +106,85 @@ def find_thunderbird_profile() -> Path | None:
     return None
 
 
+def find_all_accounts(profile_dir: Path) -> List[Dict[str, Any]]:
+    """全てのThunderbirdアカウントを検索する.
+
+    Args:
+        profile_dir: Thunderbirdプロファイルディレクトリ
+
+    Returns:
+        List[Dict[str, Any]]: アカウント情報のリスト
+        [{"name": "アカウント名", "inbox_file": Path, "mail_dir": Path}, ...]
+    """
+    accounts = []
+
+    # 通常は ImapMail/アカウント名/INBOX または Mail/Local Folders/Inbox
+    mail_dirs = [
+        profile_dir / "ImapMail",
+        profile_dir / "Mail",
+    ]
+
+    for mail_dir in mail_dirs:
+        if not mail_dir.exists():
+            print(f"❌ メールディレクトリが存在しない: {mail_dir}")
+            continue
+
+        print(f"🔍 メールディレクトリ検索中: {mail_dir}")
+
+        # アカウントフォルダの一覧表示
+        print(f"📁 {mail_dir.name} 内のアカウント一覧:")
+        for item in mail_dir.iterdir():
+            if item.is_dir():
+                print(f"  - {item.name}")
+
+                # INBOX ファイルを検索
+                inbox_candidates = [
+                    item / "INBOX",
+                    item / "Inbox",
+                    item / "inbox",
+                ]
+
+                for inbox_file in inbox_candidates:
+                    if inbox_file.exists() and inbox_file.is_file():
+                        # ファイルサイズもチェック
+                        file_size = inbox_file.stat().st_size
+                        print(f"✅ 受信トレイ発見: {inbox_file} (サイズ: {file_size} bytes)")
+                        if file_size > 0:  # 空でないファイルを優先
+                            account_info = {
+                                "name": item.name,
+                                "inbox_file": inbox_file,
+                                "mail_dir": mail_dir,
+                                "account_dir": item,
+                                "type": "IMAP" if mail_dir.name == "ImapMail" else "Local",
+                            }
+                            accounts.append(account_info)
+                            break  # 1つ見つかったら次のアカウントへ
+
+    print(f"\n📊 検出されたアカウント数: {len(accounts)} 個")
+    for i, account in enumerate(accounts, 1):
+        print(f"  {i}. {account['name']} ({account['type']}) - {account['inbox_file']}")
+
+    return accounts
+
+
 def find_inbox_file(profile_dir: Path) -> Path | None:
-    """受信トレイファイルを検索する.
+    """受信トレイファイルを検索する（後方互換性のため残存）.
+
+    Args:
+        profile_dir: Thunderbirdプロファイルディレクトリ
+
+    Returns:
+        Path | None: 受信トレイファイルのパス、見つからない場合はNone
+    """
+    accounts = find_all_accounts(profile_dir)
+    if accounts:
+        print(f"⚠️ 複数アカウント検出、最初のアカウントを使用: {accounts[0]['name']}")
+        return accounts[0]["inbox_file"]
+    return None
+
+
+def find_inbox_file_legacy(profile_dir: Path) -> Path | None:
+    """受信トレイファイルを検索する（旧実装）.
 
     Args:
         profile_dir: Thunderbirdプロファイルディレクトリ
@@ -209,6 +286,29 @@ def parse_mail_data(message: email.message.Message, truncate: bool = False) -> D
     # メッセージID取得
     message_id = message.get("Message-ID", "")
 
+    # フォルダ情報を推測（X-Mozilla-SourceとかX-Folderヘッダーから）
+    mail_folder = "INBOX"  # デフォルト
+
+    # Thunderbird特有のヘッダーをチェック
+    x_folder = message.get("X-Folder")
+    x_mozilla_source = message.get("X-Mozilla-Source")
+    x_mail_folder = message.get("X-Mail-Folder")
+
+    if x_folder:
+        mail_folder = x_folder
+    elif x_mozilla_source:
+        # X-Mozilla-Sourceからフォルダ名を抽出
+        if "INBOX" in x_mozilla_source:
+            mail_folder = "INBOX"
+        elif "Sent" in x_mozilla_source:
+            mail_folder = "Sent"
+        elif "Drafts" in x_mozilla_source:
+            mail_folder = "Drafts"
+        else:
+            mail_folder = x_mozilla_source
+    elif x_mail_folder:
+        mail_folder = x_mail_folder
+
     # メール形式とコンテンツタイプを解析
     content_type = message.get_content_type()
     is_multipart = message.is_multipart()
@@ -274,6 +374,7 @@ def parse_mail_data(message: email.message.Message, truncate: bool = False) -> D
             "sender": sender,
             "received_time": received_time,
             "message_id": message_id,
+            "mail_folder": mail_folder,  # フォルダ情報追加！
             "content_type": content_type,
             "is_multipart": is_multipart,
             "available_formats": list(set(available_formats)),
@@ -288,6 +389,7 @@ def parse_mail_data(message: email.message.Message, truncate: bool = False) -> D
             "sender": sender,
             "received_time": received_time,
             "message_id": message_id,
+            "mail_folder": mail_folder,  # フォルダ情報追加！
             "content_type": content_type,
             "is_multipart": is_multipart,
             "available_formats": list(set(available_formats)),
@@ -297,31 +399,108 @@ def parse_mail_data(message: email.message.Message, truncate: bool = False) -> D
         }
 
 
-def get_latest_mails(inbox_file: Path, count: int = 10, full_content: bool = True) -> List[Dict[str, Any]]:
+def get_mails_from_all_accounts(
+    profile_dir: Path, count: int = 10, full_content: bool = True, after_time: datetime | None = None
+) -> List[Dict[str, Any]]:
+    """全アカウントからメールを取得する.
+
+    Args:
+        profile_dir: Thunderbirdプロファイルディレクトリ
+        count: 各アカウントから取得するメール数
+        full_content: 本文を全文取得するかどうか
+        after_time: この時刻以降のメールのみ取得（Noneの場合は全て）
+
+    Returns:
+        List[Dict[str, Any]]: 全アカウントのメールデータのリスト
+    """
+    all_mails = []
+    accounts = find_all_accounts(profile_dir)
+
+    if not accounts:
+        print("😭 アカウントが見つからないよ〜")
+        return []
+
+    for account in accounts:
+        print(f"\n📧 アカウント '{account['name']}' からメール取得中...")
+        try:
+            mails = get_latest_mails(
+                account["inbox_file"], count=count, full_content=full_content, after_time=after_time
+            )
+            # アカウント情報を各メールに追加
+            for mail in mails:
+                mail["account_name"] = account["name"]
+                mail["account_type"] = account["type"]
+
+            all_mails.extend(mails)
+            print(f"✅ アカウント '{account['name']}': {len(mails)} 件取得")
+
+        except Exception as e:
+            print(f"❌ アカウント '{account['name']}' でエラー: {e}")
+            continue
+
+    # 全アカウントのメールを受信日時でソート（新しい順）
+    all_mails.sort(
+        key=lambda x: x["received_time"] or datetime.min.replace(tzinfo=datetime.now().astimezone().tzinfo),
+        reverse=True,
+    )
+
+    print(f"\n🎉 全アカウント合計: {len(all_mails)} 件のメールを取得")
+    return all_mails
+
+
+def get_latest_mails(
+    inbox_file: Path, count: int = 10, full_content: bool = True, after_time: datetime | None = None
+) -> List[Dict[str, Any]]:
     """受信トレイから最新のメールを取得する.
 
     Args:
         inbox_file: 受信トレイファイルのパス
         count: 取得するメール数
         full_content: 本文を全文取得するかどうか
+        after_time: この時刻以降のメールのみ取得（Noneの場合は全て）
 
     Returns:
         List[Dict[str, Any]]: メールデータのリスト
     """
     try:
         print(f"📧 受信トレイ読み込み中: {inbox_file}")
+        if after_time:
+            print(f"📅 フィルタ条件: {after_time} 以降のメール")
 
         # mboxファイルとして開く
         mbox = mailbox.mbox(str(inbox_file))
 
         print(f"✅ 総メール数: {len(mbox)} 件")
 
-        # メールを取得してソート
+        # メールを取得してフィルタリング
         mails = []
+        filtered_count = 0
+
         for message in mbox:
             # full_contentに応じて切り詰めを制御
             mail_data = parse_mail_data(message, truncate=not full_content)
+
+            # 日時フィルタリング
+            if after_time:
+                mail_received_time = mail_data.get("received_time")
+                if mail_received_time:
+                    # タイムゾーン情報の統一
+                    compare_after_time = after_time
+                    if after_time.tzinfo is None:
+                        # after_timeにタイムゾーン情報がない場合、現在のタイムゾーンを設定
+                        compare_after_time = after_time.replace(tzinfo=datetime.now().astimezone().tzinfo)
+                    elif mail_received_time.tzinfo is None:
+                        # mail_received_timeにタイムゾーン情報がない場合、現在のタイムゾーンを設定
+                        mail_received_time = mail_received_time.replace(tzinfo=datetime.now().astimezone().tzinfo)
+
+                    if mail_received_time <= compare_after_time:
+                        filtered_count += 1
+                        continue  # 指定時刻以前のメールはスキップ
+
             mails.append(mail_data)
+
+        if after_time:
+            print(f"📊 フィルタ結果: {len(mails)} 件取得, {filtered_count} 件スキップ")
 
         # 受信日時でソート（新しい順）
         mails.sort(
@@ -354,6 +533,9 @@ def display_mails(mails: List[Dict[str, Any]]) -> None:
         print(f"\n{i}. 件名: {mail['subject']}")
         print(f"   送信者: {mail['sender']}")
         print(f"   受信日時: {mail['received_time']}")
+        # アカウント情報を表示
+        if "account_name" in mail:
+            print(f"   アカウント: {mail['account_name']} ({mail.get('account_type', '不明')})")
         print(f"   メッセージID: {mail['message_id']}")
         print(f"   コンテンツタイプ: {mail['content_type']}")
         print(f"   マルチパート: {'はい' if mail['is_multipart'] else 'いいえ'}")
@@ -370,9 +552,55 @@ def display_mails(mails: List[Dict[str, Any]]) -> None:
         print("-" * 80)
 
 
+def analyze_mail_folders(mails: List[Dict[str, Any]]) -> None:
+    """メールのフォルダ分布を分析する"""
+
+    folder_counts = {}
+    account_counts = {}
+    received_time_range = []
+
+    for mail in mails:
+        folder = mail.get("mail_folder", "不明")
+        account = mail.get("account_name", "不明")
+        received_time = mail.get("received_time")
+
+        # フォルダ別カウント
+        if folder in folder_counts:
+            folder_counts[folder] += 1
+        else:
+            folder_counts[folder] = 1
+
+        # アカウント別カウント
+        if account in account_counts:
+            account_counts[account] += 1
+        else:
+            account_counts[account] = 1
+
+        # 受信時刻の収集
+        if received_time:
+            received_time_range.append(received_time)
+
+    print("\n📊 フォルダ分析結果:")
+    for folder, count in sorted(folder_counts.items()):
+        print(f"   📁 {folder}: {count} 件")
+
+    print("\n📊 アカウント分析結果:")
+    for account, count in sorted(account_counts.items()):
+        print(f"   👤 {account}: {count} 件")
+
+    if received_time_range:
+        received_time_range.sort()
+        oldest = received_time_range[0]
+        newest = received_time_range[-1]
+        print(f"\n📅 受信時刻範囲:")
+        print(f"   最古: {oldest}")
+        print(f"   最新: {newest}")
+        print(f"   期間: {(newest - oldest).days} 日間")
+
+
 def main():
     """メイン処理."""
-    print("🚀 Thunderbird受信トレイ読み込み開始！")
+    print("🚀 Thunderbird全アカウントメール読み込み開始！")
 
     # プロファイル検索
     profile_dir = find_thunderbird_profile()
@@ -384,19 +612,25 @@ def main():
         print("Linux: ~/.thunderbird/xxxxxxxx.default")
         return
 
-    # 受信トレイファイル検索
-    inbox_file = find_inbox_file(profile_dir)
-    if not inbox_file:
-        print("😭 受信トレイファイルが見つからないよ〜")
+    # 全アカウントからメール取得
+    mails = get_mails_from_all_accounts(
+        profile_dir,
+        count=50,  # 各アカウントから50件ずつ
+        full_content=False,
+        after_time=datetime.now() - timedelta(days=1),  # 1週間以内
+    )
+
+    if not mails:
+        print("😭 メールが取得できなかったよ〜")
         return
 
-    # メール取得（全文表示モード！）
-    mails = get_latest_mails(inbox_file, count=1, full_content=True)
-
-    # 結果表示
+    # 結果表示（全アカウント・フォルダ・受信時刻込み）
     display_mails(mails)
 
-    print(f"\n🎉 処理完了！{len(mails)} 件のメールを取得したよ〜✨")
+    # フォルダ＆アカウント分析も追加！
+    analyze_mail_folders(mails)
+
+    print(f"\n🎉 処理完了！全アカウント合計 {len(mails)} 件のメールを取得したよ〜✨")
 
 
 if __name__ == "__main__":
