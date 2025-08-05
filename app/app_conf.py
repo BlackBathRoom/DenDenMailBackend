@@ -9,6 +9,7 @@ class MailVender(str, Enum):
     """メールクライアントの列挙型."""
 
     OUTLOOK = "Outlook"
+    THUNDERBIRD = "Thunderbird"
 
 
 # database
