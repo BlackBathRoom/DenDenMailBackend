@@ -9,23 +9,27 @@ from utils.log_config import get_logger
 logger = get_logger(__name__)
 
 
-# WindowsのThunderbirdプロファイルパスを取得するための候補ディレクトリ
-appdata = environ.get("APPDATA", "")
-local_appdata = environ.get("LOCALAPPDATA", "")
-system_name = system()
+def _get_thunderbird_candidates() -> list[Path]:
+    """Thunderbirdプロファイルの候補パスを取得."""
+    appdata = environ.get("APPDATA", "")
+    local_appdata = environ.get("LOCALAPPDATA", "")
 
-thunderbird_candidates = [
-    Path(environ.get("APPDATA", "")) / "Thunderbird" / "Profiles",
-    Path(environ.get("LOCALAPPDATA", "")) / "AppData" / "Roaming" / "Thunderbird" / "Profiles",
-]
+    candidates = [
+        Path(appdata) / "Thunderbird" / "Profiles",
+        Path(local_appdata) / "AppData" / "Roaming" / "Thunderbird" / "Profiles",
+    ]
 
-packages_dir = Path(local_appdata) / "Packages"
-if packages_dir.exists():
-    for package_dir in packages_dir.iterdir():
-        if package_dir.is_dir() and "thunderbird" in package_dir.name.lower():
-            profiles_path = package_dir / "LocalCache" / "Roaming" / "Thunderbird" / "Profiles"
-            if profiles_path.exists():
-                thunderbird_candidates.append(profiles_path)
+    # Windowsストアアプリ版のThunderbirdもチェック
+    packages_dir = Path(local_appdata) / "Packages"
+    if packages_dir.exists():
+        for package_dir in packages_dir.iterdir():
+            if package_dir.is_dir() and "thunderbird" in package_dir.name.lower():
+                profiles_path = package_dir / "LocalCache" / "Roaming" / "Thunderbird" / "Profiles"
+                if profiles_path.exists():
+                    candidates.append(profiles_path)
+
+    return candidates
+
 
 MAIL_DIRS = ["ImapMail", "Mail"]
 
@@ -46,11 +50,12 @@ class ThunderbirdPath:
             FileNotFoundError: ディレクトリが見つからない場合に発生.
         """
         path = None
-        match system_name:
+        current_os = system()
+        match current_os:
             case "Windows":
                 path = self._get_windows_storage_path()
             case _:
-                msg = f"Unsupported OS: {system_name}."
+                msg = f"Unsupported OS: {current_os}."
                 logger.error(msg)
                 raise NotImplementedError(msg)
 
@@ -67,7 +72,8 @@ class ThunderbirdPath:
             Path | None: プロファイルパスが見つかった場合はそのパス、見つからなければNone。
         """
         path = None
-        for candidate in thunderbird_candidates:
+        candidates = _get_thunderbird_candidates()
+        for candidate in candidates:
             if candidate.exists():
                 path = candidate
                 break
