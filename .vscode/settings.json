@@ -1,5 +1,8 @@
 {
     "python.defaultInterpreterPath": ".venv/Scripts/python.exe",
+    "terminal.integrated.env.windows": {
+        "PYTHONPATH": "${workspaceFolder}/app"
+    },
     "[python]": {
             "editor.defaultFormatter": "charliermarsh.ruff",
             "files.autoSave": "onFocusChange",
