@@ -3,23 +3,23 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Column, Field, ForeignKey, Integer, Relationship, SQLModel
 
 from models.common import BaseSQLModel
 
 if TYPE_CHECKING:
-    from models.mail import Mail
+    from models.message import Message
 
 
 class BaseSummary(BaseModel):
     """サマリのベースモデル.
 
     Attributes:
-        message_id (str): メッセージID.
+    message_id (int): メッセージID.
         content (str): サマリ内容.
     """
 
-    message_id: str
+    message_id: int
     content: str
 
 
@@ -28,17 +28,24 @@ class Summary(BaseSummary, BaseSQLModel, table=True):
 
     Attributes:
         id (int): サマリID.
-        mail_id (str): メールID.外部キーとしてメールテーブルのIDを参照.
-        message_id (str): メッセージID.
+        message_id (int): メッセージID(MESSAGES.id にユニーク1:1).
         content (str): サマリ内容.
         created_at (datetime): 作成日時.
         updated_at (datetime): 更新日時.
     """
 
-    mail_id: int = Field(index=True, unique=True, foreign_key="mail.id")
+    message_id: int = Field(
+        default=None,
+        sa_column=Column(
+            Integer,
+            ForeignKey("message.id", ondelete="CASCADE"),
+            unique=True,
+            index=True,
+        ),
+    )
 
-    # Relationship to Mail model
-    mail: Mail = Relationship(back_populates="summaries")
+    # 1:1 Relationship to Message model
+    message: Message = Relationship(back_populates="summary")
 
 
 class SummaryCreate(BaseSummary):
