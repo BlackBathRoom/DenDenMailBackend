@@ -13,7 +13,7 @@ from utils.log_config import get_logger
 logger = get_logger(__name__)
 
 
-class BaseDBManager[TBaseModel: SQLModel, TCreate: BaseModel, TRead: SQLModel, TUpdate: BaseModel](ABC):
+class BaseDBManager[TBaseModel: SQLModel, TCreate: BaseModel, TRead: SQLModel, TUpdate: (BaseModel, None)](ABC):
     """データベース操作のベースマネージャー.
 
     Attributes:
@@ -112,6 +112,10 @@ class BaseDBManager[TBaseModel: SQLModel, TCreate: BaseModel, TRead: SQLModel, T
             obj_id (int): 更新対象のオブジェクトID.
             obj (TUpdate): 更新するオブジェクト.
         """
+        if obj is None:
+            logger.warning("Update called with None object for ID %s", obj_id)
+            return
+
         with Session(engine) as session:
             existing_obj = session.get(self.model, obj_id)
             if existing_obj:
