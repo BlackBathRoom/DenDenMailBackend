@@ -15,8 +15,8 @@
 - [x] 概要・技術選定（docs/app/overview.md）
 - [x] データモデル方針（docs/app/tables.md）
 - DoD: 3つのドキュメントに一貫性があり矛盾がありません。将来変更があっても差分で追える状態です。
-- [~] モデル定義（MESSAGES, SUMMARIES, ADDRESSES, MESSAGE_ADDRESS_MAP, MESSAGE_PARTS, MESSAGE_WORDS, TAGS, MESSAGE_TAG_MAP, PRIORITY_WORDS, PRIORITY_PERSONS）
-	- 現状: Mail（MESSAGES相当）/ Summary（SUMMARIES）が実装済み、その他は未実装です。
+- [x] モデル定義（MESSAGES, SUMMARIES, ADDRESSES, MESSAGE_ADDRESS_MAP, MESSAGE_PARTS, MESSAGE_WORDS, TAGS, MESSAGE_TAG_MAP, PRIORITY_WORDS, PRIORITY_PERSONS）
+	- 現状: 全テーブルのSQLModelを実装。Message（MESSAGES）を正としてSummaryは1:1でMessage参照。主要FKにON DELETE CASCADEを付与し、必要なCHECK/INDEXも追加。既存のMailはlegacyとして残置。
 - [x] セッション/エンジン初期化（SQLite、トランザクション方針）
 	- 現状: `app/app_conf.py` で `create_engine` を初期化済みです。
 - [ ] マイグレーション方針（初期版は自動生成でもOK、YAGNIで最小）
@@ -47,11 +47,11 @@
 
 ### M4: スコアリング・検索
 - [ ] クエリAPIの設計（ページング/並び替え/既読フィルタ）
-- 完了: M0（ドキュメント土台）
-- 進行中: M1（モデル定義 一部）、M2（取得/解析 一部）、M7（ログ）
+- 完了: M0（ドキュメント土台）、M1（モデル定義）
+- 進行中: M2（取得/解析 一部）、M7（ログ）
 - ブロック: なし
 - DoD: 指定条件で安定して並べ替えが可能で、ベンチマークで1000通規模でも体感的に速いです。
-総合進捗（目安）: 2/10 マイルストーン
+総合進捗（目安）: 3/10 マイルストーン
 ### M5: API（FastAPI）
 
 - [ ] メッセージ一覧/詳細/本文パーツ取得
@@ -88,7 +88,7 @@
 
 - [~] **2-1: データベースモデルの定義**
 	- [x] `app/models/summary.py` に `Summary` モデルを定義
-	- [x] `Mail` モデルとのリレーションを設定
+	- [x] `Message` モデルとの1:1リレーションを設定（Mailはlegacy）
 	- [ ] テスト: `Summary` モデルとリレーションが正しく定義されているか確認
 - [ ] **2-2: サマリー生成ロジックの実装**
 - 進行中: なし
@@ -100,8 +100,8 @@
 - [ ] **2-4: API エンドポイントの作成**
 ## 次アクション（提案）
 
-1) M1のモデル定義を一気に作成します（SQLModel）。まずは外部キーとユニーク制約を落とし込みます。
-2) インメモリ/一時DBでモデルを作成し、CRUDのスモークテストを実施します。
+1) M1のモデル定義は完了。インメモリ/一時DBでcreate_allとCRUDスモークテストを実施します。
+2) MBOX正規化の重複排除ルールを確定し、DB保存（MESSAGES/MESSAGE_PARTS/ADDRESSES/MESSAGE_ADDRESS_MAP）の最小実装を追加。
 3) M2のThunderbird取り込みを最小パスで1アカウント分だけ実装します。
 
 ---
