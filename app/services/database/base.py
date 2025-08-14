@@ -8,7 +8,7 @@ from sqlalchemy import Engine
 from sqlmodel import Session, SQLModel
 
 from utils.check_implementation import check_implementation
-from utils.log_config import get_logger
+from utils.logging import get_logger
 
 logger = get_logger(__name__)
 
