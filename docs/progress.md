@@ -15,83 +15,89 @@
 - [x] 概要・技術選定（docs/app/overview.md）
 - [x] データモデル方針（docs/app/tables.md）
 - DoD: 3つのドキュメントに一貫性があり矛盾がありません。将来変更があっても差分で追える状態です。
-
-### M1: データ層（SQLModel）
-
-- [ ] モデル定義（MESSAGES, SUMMARIES, ADDRESSES, MESSAGE_ADDRESS_MAP, MESSAGE_PARTS, MESSAGE_WORDS, TAGS, MESSAGE_TAG_MAP, PRIORITY_WORDS, PRIORITY_PERSONS）
+- [~] モデル定義（MESSAGES, SUMMARIES, ADDRESSES, MESSAGE_ADDRESS_MAP, MESSAGE_PARTS, MESSAGE_WORDS, TAGS, MESSAGE_TAG_MAP, PRIORITY_WORDS, PRIORITY_PERSONS）
+	- 現状: Mail（MESSAGES相当）/ Summary（SUMMARIES）が実装済み、その他は未実装です。
+- [x] セッション/エンジン初期化（SQLite、トランザクション方針）
+	- 現状: `app/app_conf.py` で `create_engine` を初期化済みです。
+- [ ] マイグレーション方針（初期版は自動生成でもOK、YAGNIで最小）
+	- 現状: 未決定です。
+- DoD: 全テーブルを作成でき、基本CRUDがスキーマどおりに動作し、ユニーク/外部キー制約が期待どおりに機能します。
 - [ ] セッション/エンジン初期化（SQLite、トランザクション方針）
 - [ ] マイグレーション方針（初期版は自動生成でもOK、YAGNIで最小）
-- DoD: 全テーブルを作成でき、基本CRUDがスキーマどおりに動作し、ユニーク/外部キー制約が期待どおりに機能します。
-
-### M2: メール取得（Thunderbirdローカル）
-
-- [ ] プロファイル探索（WindowsのTB既定パス対応）
+- [x] プロファイル探索（WindowsのTB既定パス対応）
+	- 現状: `ThunderbirdPath` がプロファイルとメールボックスを検出します。
+- [~] MBOX/mbox-likeの解析と正規化（Message-ID必須、重複排除）
+	- 現状: `ThunderbirdClient` でmbox解析とMessage-ID取得は実装済みです。DBでの重複排除は未対応です。
+- [~] MIMEパーツ抽出（本文text/plain, text/html、添付、CID対応）
+	- 現状: text/plain と text/html の抽出は実装済みです。添付/CIDの保存は未対応です。
+- [ ] DB保存（MESSAGES, MESSAGE_PARTS, ADDRESSES, MESSAGE_ADDRESS_MAP）
+	- 現状: 取得データのDB保存ロジックは未実装です。
+- DoD: サンプルプロファイルから一定件数（例: 100通）を安定して取り込みでき、再実行しても重複挿入が発生しません。
 - [ ] MBOX/mbox-likeの解析と正規化（Message-ID必須、重複排除）
 - [ ] MIMEパーツ抽出（本文text/plain, text/html、添付、CID対応）
-- [ ] DB保存（MESSAGES, MESSAGE_PARTS, ADDRESSES, MESSAGE_ADDRESS_MAP）
-- DoD: サンプルプロファイルから一定件数（例: 100通）を安定して取り込みでき、再実行しても重複挿入が発生しません。
-
-### M3: 要約生成（ローカルLLM前提の抽象化）
+- [ ] DB保存（SUMMARIES）
+	- 現状: SummaryモデルとCRUDはありますが、要約生成との連携は未実装です。
 
 - [ ] サマライザIF定義（Sync/Async両対応のポート）
-- [ ] プロバイダ実装（ローカルLLM/スタブ、タイムアウト/リトライ）
-- [ ] バッチ/バックグラウンド実行（未要約のみ対象、再実行安全）
-- [ ] DB保存（SUMMARIES）
-- DoD: 複数通をまとめて要約し、失敗時はリトライキューに送られます。APIやログから進捗を確認できます。
-
-### M4: スコアリング・検索
-
-- [ ] トークン化＆逆引き（MESSAGE_WORDS生成）
-- [ ] 単語/人物の優先度反映（PRIORITY_WORDS/PRIORITY_PERSONSでスコア算出）
-- [ ] クエリAPIの設計（ページング/並び替え/既読フィルタ）
-- DoD: 指定条件で安定して並べ替えが可能で、ベンチマークで1000通規模でも体感的に速いです。
-
-### M5: API（FastAPI）
-
-- [ ] メッセージ一覧/詳細/本文パーツ取得
-- [ ] 要約取得、未生成時のキック
-- [ ] タグのCRUDと付与/剥がし
-- [ ] 優先度辞書（単語/人物）のCRUD
-- DoD: OpenAPIを問題なく出力でき、最低限のリクエスト/レスポンス契約に型が付きます。
-
-### M6: 通知・進捗配信（WebSocket）
-
-- [ ] 取り込み/要約ジョブの進捗イベント配信
-- [ ] エラー通知と簡易リトライ指示
-- DoD: 同時に複数クライアントが接続しても進捗が破綻せず、切断や再接続に耐えます。
-
-### M7: 設定・ログ・監視
-
 - [ ] 設定管理（.env/pyprojectからの読込、上書きルール）
-- [ ] 構造化ログとローテーション（log/app.log）
+- [x] 構造化ログとローテーション（log/app.log）
+	- 現状: 回転ファイル/コンソールのハンドラ構成で稼働します。
 - [ ] 最低限のヘルスチェック
 - DoD: 本番/開発の切り替えがシンプルで、ログから障害原因をたどれます。
 
-### M8: テスト/品質ゲート
+### M4: スコアリング・検索
+- [ ] クエリAPIの設計（ページング/並び替え/既読フィルタ）
+- 完了: M0（ドキュメント土台）
+- 進行中: M1（モデル定義 一部）、M2（取得/解析 一部）、M7（ログ）
+- ブロック: なし
+- DoD: 指定条件で安定して並べ替えが可能で、ベンチマークで1000通規模でも体感的に速いです。
+総合進捗（目安）: 2/10 マイルストーン
+### M5: API（FastAPI）
 
-- [ ] 単体テスト（モデル、パーサ、スコア計算）
-- [ ] APIテスト（主要エンドポイントのハッピーパス+1エラー系）
-- [ ] 型チェック（pyright）/Lint（ruff）/簡易ベンチ
-- DoD: CI相当のローカル実行でグリーンになり、最低限のカバレッジを確保します。
+- [ ] メッセージ一覧/詳細/本文パーツ取得
+- [x] データベース設計
+	- [x] ER図の作成
+	- [x] 各テーブルのカラム定義
+- [ ] 開発環境の整備
 
+### M6: 通知・進捗配信（WebSocket）
+- [~] 基本的な FastAPI アプリケーションのセットアップ
+	- [x] `app/main.py` の作成
+	- [x] `app/app_conf.py` での設定管理
+	- [ ] `uvicorn` での起動確認
+
+### M7: 設定・ログ・監視
+- [~] **1-1: データベースモデルの定義**
+	- [x] `app/models/mail.py` に `Mail` モデルを定義する
+	- [x] `app/models/common.py` に共通で使うモデルがあれば定義する
+	- [ ] テスト: `Mail` モデルが正しく定義されているか確認するテストを作成
+- [~] **1-2: Thunderbird メール取得ロジックの実装**
+	- [x] `app/services/mail/thunderbird/thunderbird_path.py` で Thunderbird のプロファイルパスを検出する機能を実装
+	- [x] `app/services/mail/thunderbird/thunderbird.py` で mbox ファイルを読み込む機能を実装
+	- [ ] テスト: ダミーのプロファイルとメールファイルで、正しくパスが検出でき、メールが読み込めるかテスト
+- [~] **1-3: メールデータの永続化処理**
+	- [x] `app/services/database/base.py` でDBセッション管理/CRUD基盤を実装
+	- [x] `app/services/database/mail_crud.py` で `Mail` モデルの CRUD (Create, Read) 処理を実装
+	- [ ] テスト: `mail_crud` の各関数が正しく動作するか単体テストを作成
+- [ ] **1-4: API エンドポイントの作成**
 ### M9: 配布/運用
 
 - [ ] 起動スクリプト/README更新（uv基盤）
 - [ ] サンプルデータ/デモ手順
 - DoD: 新規環境で手順どおりに起動・利用でき、初回学習コストが低いです。
 
----
-
-## 進捗サマリ（随時更新）
-
-- 完了: M0（ドキュメント土台）
+- [~] **2-1: データベースモデルの定義**
+	- [x] `app/models/summary.py` に `Summary` モデルを定義
+	- [x] `Mail` モデルとのリレーションを設定
+	- [ ] テスト: `Summary` モデルとリレーションが正しく定義されているか確認
+- [ ] **2-2: サマリー生成ロジックの実装**
 - 進行中: なし
 - ブロック: なし
 
-総合進捗（目安）: 1/10 マイルストーン
-
----
-
+- [~] **2-3: サマリーデータの永続化処理**
+	- [x] `app/services/database/summary_crud.py` で `Summary` モデルの CRUD 処理を実装
+	- [ ] テスト: `summary_crud` の各関数が正しく動作するか単体テストを作成
+- [ ] **2-4: API エンドポイントの作成**
 ## 次アクション（提案）
 
 1) M1のモデル定義を一気に作成します（SQLModel）。まずは外部キーとユニーク制約を落とし込みます。
