@@ -25,6 +25,7 @@ LOG_CONFIG = {
             "formatter": "default",
             "level": "DEBUG",
             "filename": str(LOG_DIR / "app.log"),
+            "encoding": "utf-8",
             "maxBytes": 10485760,  # 10MB
             "backupCount": 5,
         },
