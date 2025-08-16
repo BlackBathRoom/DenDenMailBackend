@@ -12,7 +12,7 @@ from pathlib import Path
 from app_conf import MailVender
 from services.mail.base import BaseClientConfig, BaseMailClient, MailData
 from services.mail.thunderbird.thunderbird_path import ThunderbirdPath
-from utils.log_config import get_logger
+from utils.logging import get_logger
 
 logger = get_logger(__name__)
 

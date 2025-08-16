@@ -1,16 +1,12 @@
 from __future__ import annotations
 
 from datetime import datetime  # noqa: TC003 # pydanticバリデーションのために必要
-from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, EmailStr
-from sqlmodel import VARCHAR, Column, Field, Relationship, SQLModel
+from sqlmodel import VARCHAR, Column, Field, SQLModel
 
 from app_conf import MailVender  # noqa: TC001 # pydanticバリデーションのために必要
 from models.common import BaseSQLModel
-
-if TYPE_CHECKING:
-    from models.summary import Summary
 
 
 class BaseMail(BaseModel):
@@ -57,8 +53,7 @@ class Mail(BaseMail, BaseSQLModel, table=True):
     message_id: str = Field(index=True, unique=True)
     vender: MailVender = Field(sa_column=Column(VARCHAR))
 
-    # Relationship to Summary model
-    summaries: list[Summary] = Relationship(back_populates="mail")
+    # 旧モデル。MESSAGESへ移行予定。リレーションは未使用化。
 
 
 class MailCreate(BaseMail):
