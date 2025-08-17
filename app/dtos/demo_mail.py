@@ -20,12 +20,6 @@ class DemoMailDTO(BaseModel):
     vender: MailVender = Field(..., description="メールクライアント種別")
 
 
-class DemoSummaryDTO(BaseModel):
-    id: str = Field(..., description="対象メールのメッセージID")
-    content: str = Field(..., description="要約テキスト")
-    score: float = Field(ge=0, le=1, description="要約スコア(0-1のダミー)")
-
-
 def demo_mail_value() -> DemoMailDTO:
     return DemoMailDTO(
         id="demo-20250816-0001",
@@ -36,12 +30,4 @@ def demo_mail_value() -> DemoMailDTO:
         mail_folder="INBOX",
         is_read=False,
         vender="Thunderbird",
-    )
-
-
-def demo_summary_value() -> DemoSummaryDTO:
-    return DemoSummaryDTO(
-        id="demo-20250816-0001",
-        content="これはデモ用のサマリです。",
-        score=0.87,
     )
