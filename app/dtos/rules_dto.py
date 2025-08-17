@@ -48,11 +48,3 @@ class AddressRuleUpdateDTO(BaseModel):
     email: EmailStr | None = None
     name: str | None = None
     priority: PriorityLevel | None = None
-
-
-class DictionaryDeleteDTO(BaseModel):
-    ids: list[str]
-
-
-class AddressDeleteDTO(BaseModel):
-    ids: list[str]
