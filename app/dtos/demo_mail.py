@@ -1,33 +1,57 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field
-
-# リポの app_conf.MailVender に寄せたいが、デモなので Literal で代用
-MailVender = Literal["Thunderbird", "Outlook", "Other"]
+from .mail_dto import AttachmentDTO, MailbodyDTO, MailDTO, MailReadUpdateDTO
 
 
-class DemoMailDTO(BaseModel):
-    id: str = Field(..., description="メッセージID(ユニーク)")
-    subject: str = Field(..., description="件名")
-    received_at: datetime = Field(..., description="受信日時(ISO8601)")
-    sender_name: str = Field(..., description="送信者名")
-    sender_address: EmailStr = Field(..., description="送信者メールアドレス")
-    mail_folder: str = Field(..., description="フォルダ名(例: INBOX)")
-    is_read: bool = Field(default=False, description="既読フラグ")
-    vender: MailVender = Field(..., description="メールクライアント種別")
-
-
-def demo_mail_value() -> DemoMailDTO:
-    return DemoMailDTO(
-        id="demo-20250816-0001",
-        subject="[Demo] FastAPI sample mail",
+def demo_mail_dto_value() -> MailDTO:
+    """mail_dto.pyのMailDTOと同じ型でデモ値を返す."""
+    return MailDTO(
+        id="demo-mail-001",
+        subject="重要: プロジェクトミーティングの件",
+        sender_email="manager@example.com",
+        receiver_email=["user@example.com", "team@example.com"],
         received_at=datetime.now(UTC),
-        sender_name="DenDen Mail Bot",
-        sender_address="bot@example.com",
-        mail_folder="INBOX",
+        your_role="to",
+        priority=2,
         is_read=False,
-        vender="Thunderbird",
     )
+
+
+def demo_attachment_dto_value() -> AttachmentDTO:
+    """mail_dto.pyのAttachmentDTOと同じ型でデモ値を返す."""
+    return AttachmentDTO(
+        filename="meeting_schedule.pdf",
+        content_type="application/pdf",
+    )
+
+
+def demo_mailbody_dto_value() -> MailbodyDTO:
+    """mail_dto.pyのMailbodyDTOと同じ型でデモ値を返す."""
+    body_text = (
+        "お疲れ様です。\n\n"
+        "来週火曜日(8月20日)14:00より、プロジェクトの進捗確認ミーティングを開催いたします。\n\n"
+        "議題:\n"
+        "1. 現在の進捗状況\n"
+        "2. 課題と解決策\n"
+        "3. 今後のスケジュール\n\n"
+        "よろしくお願いします。"
+    )
+    return MailbodyDTO(
+        id="demo-mail-001",
+        subject="重要: プロジェクトミーティングの件",
+        sender_email="manager@example.com",
+        receiver_email=["user@example.com", "team@example.com"],
+        received_at=datetime.now(UTC),
+        your_role="to",
+        priority=2,
+        is_read=False,
+        body=body_text,
+        attachments=[demo_attachment_dto_value()],
+    )
+
+
+def demo_mail_read_update_dto_value() -> MailReadUpdateDTO:
+    """mail_dto.pyのMailReadUpdateDTOと同じ型でデモ値を返す."""
+    return MailReadUpdateDTO(is_read=True)
