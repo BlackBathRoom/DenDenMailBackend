@@ -6,7 +6,7 @@ from pydantic import BaseModel, EmailStr
 PriorityLevel = Literal[1, 2, 3]
 
 
-class MailListDTO(BaseModel):
+class MailDTO(BaseModel):
     id: str
     subject: str
     sender_email: EmailStr
