@@ -1,19 +1,17 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
-PriorityLevel = Literal[1, 2, 3]
+from .shared import BaseMailPriority
 
 
-class MailDTO(BaseModel):
-    id: str
+class MailDTO(BaseMailPriority):
     subject: str
     sender_email: EmailStr
     receiver_email: list[EmailStr]
     received_at: datetime
     your_role: Literal["to", "cc"]
-    priority: PriorityLevel
     is_read: bool
 
 
@@ -22,17 +20,15 @@ class AttachmentDTO(BaseModel):
     content_type: str
 
 
-class MailbodyDTO(BaseModel):
-    id: str
+class MailbodyDTO(BaseMailPriority):
     subject: str
     sender_email: EmailStr
     receiver_email: list[EmailStr]
     your_role: Literal["to", "cc"]
     received_at: datetime
-    priority: Literal[1, 2, 3]
     is_read: bool
     body: str
-    attachments: list[AttachmentDTO] = []
+    attachments: list[AttachmentDTO] = Field(default_factory=list)
 
 
 class MailReadUpdateDTO(BaseModel):
