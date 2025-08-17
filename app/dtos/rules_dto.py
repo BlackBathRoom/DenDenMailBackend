@@ -2,49 +2,35 @@ from typing import Literal
 
 from pydantic import BaseModel, EmailStr
 
-PriorityLevel = Literal[1, 2, 3]
+from .shared import BasePriority, BasePriorityCreate, BasePriorityUpdate
 
 
-class DictionaryDTO(BaseModel):
-    id: str
+class DictionaryDTO(BasePriority):
     keyword: str
-    priority: PriorityLevel
 
 
-class DictionaryRuleDTO(BaseModel):
-    id: str
-    keyword: str
-    priority: PriorityLevel
-
-
-class AddressRuleDTO(BaseModel):
-    id: str
+class AddressRuleDTO(BasePriority):
     email: EmailStr
     name: str
-    priority: PriorityLevel
 
 
 class BaseRuleDTO(BaseModel):
     type: Literal["email", "dictionary"]
 
 
-class DictionaryCreateDTO(BaseRuleDTO):
+class DictionaryCreateDTO(BaseRuleDTO, BasePriorityCreate):
     keyword: str
-    priority: PriorityLevel
 
 
-class AddressRuleCreateDTO(BaseRuleDTO):
+class AddressRuleCreateDTO(BaseRuleDTO, BasePriorityCreate):
     email: EmailStr
     name: str | None = None
-    priority: PriorityLevel
 
 
-class DictionaryUpdateDTO(BaseModel):
+class DictionaryUpdateDTO(BasePriorityUpdate):
     keyword: str | None = None
-    priority: PriorityLevel | None = None
 
 
-class AddressRuleUpdateDTO(BaseModel):
+class AddressRuleUpdateDTO(BasePriorityUpdate):
     email: EmailStr | None = None
     name: str | None = None
-    priority: PriorityLevel | None = None
