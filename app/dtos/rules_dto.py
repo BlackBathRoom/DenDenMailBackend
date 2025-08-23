@@ -2,7 +2,7 @@ from typing import Literal
 
 from pydantic import BaseModel, EmailStr
 
-from .shared import BasePriority, BasePriorityCreate, BasePriorityUpdate
+from .shared.base import BasePriority, BasePriorityCreate, BasePriorityUpdate
 
 
 class DictionaryDTO(BasePriority):

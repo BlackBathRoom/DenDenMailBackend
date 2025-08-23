@@ -3,7 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field
 
-from .shared import BaseMailPriority
+from .shared.base import BaseMailPriority
 
 
 class MailDTO(BaseMailPriority):
