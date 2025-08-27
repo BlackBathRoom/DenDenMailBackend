@@ -3,10 +3,10 @@ from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field
 
-from .shared.base import BaseMailPriority
+from .shared.base import BasePriority
 
 
-class MailDTO(BaseMailPriority):
+class MailDTO(BasePriority):
     subject: str
     sender_email: EmailStr
     receiver_email: list[EmailStr]
@@ -20,7 +20,7 @@ class AttachmentDTO(BaseModel):
     content_type: str
 
 
-class MailbodyDTO(BaseMailPriority):
+class MailbodyDTO(BasePriority):
     subject: str
     sender_email: EmailStr
     receiver_email: list[EmailStr]
