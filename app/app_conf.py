@@ -12,6 +12,12 @@ class MailVender(str, Enum):
     THUNDERBIRD = "Thunderbird"
 
 
+# path
+BASE_DIR = Path(__file__).parent.parent
+
+# ai model
+AI_MODEL_PATH = BASE_DIR / "ai_models"
+
 # database
-DB_PATH = Path(__file__).parent.parent / "database" / "db.sqlite3"
+DB_PATH = BASE_DIR / "database" / "db.sqlite3"
 engine = create_engine(f"sqlite:///{DB_PATH}", echo=True, connect_args={"check_same_thread": False})
