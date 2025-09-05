@@ -64,7 +64,7 @@ if __name__ == "__main__":
     from services.ai.ai_models import OpenVINOModels
 
     model_id = OpenVINOModels.PHI_4_MINI_INSTRUCT
-    ov_config = {"PERFORMANCE_HINT": "LATENCY", "NUM_STREAMS": "1"}
+    ov_config = {"PERFORMANCE_HINT": "LATENCY", "NUM_STREAMS": "1", "CACHE_DIR": ""}
 
     ov_model, tokenizer = load_ov_model(model_id=model_id, ov_config=ov_config)
 
