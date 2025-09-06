@@ -86,7 +86,6 @@ class SummarizeAgentGraph(BaseGraph[SummarizeAgentState, str]):
     def _summarize(self, state: SummarizeAgentState) -> SummarizeAgentState:
         formatted_message = prompt.format_prompt(source_text=state["source_text"])
         resp = llm.invoke([HumanMessage(content=formatted_message.to_string())])
-        state["result"] = resp.content
         return {**state, "result": resp.content}
 
 
