@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from transformers.tokenization_utils import PreTrainedTokenizer
     from transformers.tokenization_utils_fast import PreTrainedTokenizerFast
 
-    from services.ai.ai_models import OpenVINOModels
+    from services.ai.shared.ai_models import OpenVINOModels
 
 
 logger = get_logger(__name__)
@@ -61,7 +61,7 @@ if __name__ == "__main__":
     from langchain_huggingface import ChatHuggingFace, HuggingFacePipeline
     from transformers.pipelines import pipeline
 
-    from services.ai.ai_models import OpenVINOModels
+    from services.ai.shared.ai_models import OpenVINOModels
 
     model_id = OpenVINOModels.PHI_4_MINI_INSTRUCT
     ov_config = {"PERFORMANCE_HINT": "LATENCY", "NUM_STREAMS": "1", "CACHE_DIR": ""}
