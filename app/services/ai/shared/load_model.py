@@ -36,8 +36,10 @@ def _resolve_device() -> str:
 
 
 def load_ov_model(
-    model_id: OpenVINOModels, ov_config: dict[str, str]
-) -> tuple[OptimizedModel, PreTrainedTokenizer | PreTrainedTokenizerFast | None]:
+    model_id: OpenVINOModels, ov_config: dict[str, str] | None = None
+) -> tuple[OptimizedModel, PreTrainedTokenizer | PreTrainedTokenizerFast]:
+    if ov_config is None:
+        ov_config = {}
     model_path = (AI_MODEL_PATH / _convert_model_id_to_dir_name(model_id.value)).resolve()
     is_downloaded = model_path.exists()
     device = _resolve_device()
