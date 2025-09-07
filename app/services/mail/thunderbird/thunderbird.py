@@ -77,7 +77,7 @@ class ThunderbirdClient(BaseMailClient[ThunderbirdConfig]):
         return mails
 
     def _parse_single_mail(self, message: Message) -> MessageData | None:
-        """単一メールメッセージをパースしてMailDataに変換.
+        """単一メールメッセージをパースしてMessageDataに変換.
 
         Args:
             message: emailメッセージオブジェクト
