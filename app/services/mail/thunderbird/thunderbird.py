@@ -10,7 +10,7 @@ from email.utils import parseaddr, parsedate_to_datetime
 from pathlib import Path
 
 from app_conf import MailVender
-from services.mail.base import BaseClientConfig, BaseMailClient, MailData
+from services.mail.base import BaseClientConfig, BaseMailClient, MessageData, MessagePartData
 from services.mail.thunderbird.thunderbird_path import ThunderbirdPath
 from utils.logging import get_logger
 
@@ -36,7 +36,7 @@ class ThunderbirdClient(BaseMailClient[ThunderbirdConfig]):
         """Thunderbirdクライアントはローカルファイルシステムを使用するため、特に切断処理は不要."""
         logger.info("Disconnected from Thunderbird client.")
 
-    def _parse_mailbox_file(self, file_path: Path, count: int = 10) -> list[MailData]:
+    def _parse_mailbox_file(self, file_path: Path, count: int = 10) -> list[MessageData]:
         """メールボックスファイルからメールをパースして取得.
 
         Args:
@@ -44,7 +44,7 @@ class ThunderbirdClient(BaseMailClient[ThunderbirdConfig]):
             count: 取得するメール数
 
         Returns:
-            list[MailData]: パースされたメールのリスト
+            list[MessageData]: パースされたメールのリスト
         """
         mails = []
 
@@ -76,38 +76,39 @@ class ThunderbirdClient(BaseMailClient[ThunderbirdConfig]):
         logger.info("Successfully parsed %d mails from %s", len(mails), file_path.name)
         return mails
 
-    def _parse_single_mail(self, message: Message) -> MailData | None:
+    def _parse_single_mail(self, message: Message) -> MessageData | None:
         """単一メールメッセージをパースしてMailDataに変換.
 
         Args:
             message: emailメッセージオブジェクト
 
         Returns:
-            MailData | None: パースされたメールデータ
+            MessageData | None: パースされたメールデータ
         """
         mail_data = None
         try:
             subject = self._decode_header(message.get("Subject", "件名なし"))
-            sender = self._decode_header(message.get("From", "送信者不明"))
-            sender_name, sender_address = self._parse_sender(sender)
-            received_time = self._parse_date(message.get("Date", "")) or datetime.now().astimezone()
-            message_id = message.get("Message-ID", "")
+            date_header = self._decode_header(message.get("Date", ""))
+            date_sent = self._parse_date(date_header)
+            date_received = date_sent or datetime.now().astimezone()
+            rfc822_message_id = message.get("Message-ID", "")
 
-            # メール本文を取得してHTMLとテキストを統合処理
-            text_body, html_body = self._extract_body(message)
-            body = html_body if html_body else text_body
+            parts = self._extract_parts(message)
 
             # MailDataオブジェクト作成
-            mail_data = MailData(
-                message_id=message_id,
+            mail_data = MessageData(
+                rfc822_message_id=rfc822_message_id,
                 subject=subject,
-                received_at=received_time,
-                sender_name=sender_name,
-                sender_address=sender_address,
-                mail_folder="INBOX",  # Thunderbirdの場合は固定
-                is_read=False,  # 新規取得メールは未読として扱う
-                vender=MailVender.THUNDERBIRD,
-                body=body,
+                date_sent=date_sent,
+                date_received=date_received,
+                in_reply_to=self._decode_header(message.get("In-Reply-To", "")) or None,
+                references_list=self._decode_header(message.get("References", "")) or None,
+                is_read=False,
+                is_replied=False,
+                is_flagged=False,
+                is_forwarded=False,
+                vendor=MailVender.THUNDERBIRD,
+                parts=parts,
             )
 
         except (MessageError, UnicodeDecodeError, ValueError) as e:
@@ -225,6 +226,71 @@ class ThunderbirdClient(BaseMailClient[ThunderbirdConfig]):
 
         return text_body, html_body
 
+    def _extract_parts(self, message: Message) -> list[MessagePartData]:
+        """メッセージからMIMEパーツを抽出して配列で返す.
+
+        ネスト構造はフラットにしつつ、各要素に parent_part_order を付与する。
+        multipart コンテナ自体も要素として出力するが、payload は持たない。
+        """
+        parts: list[MessagePartData] = []
+        order = 0
+
+        def walk(node: Message, parent_order: int | None) -> None:
+            nonlocal order, parts
+            try:
+                if node.is_multipart():
+                    # コンテナとして自身も追加 (payload は無し)
+                    container = self._to_part_data(node, order)
+                    container.content = None
+                    container.is_attachment = False if container.is_attachment is None else container.is_attachment
+                    container.parent_part_order = parent_order
+                    parts.append(container)
+                    current_order = order
+                    order += 1
+
+                    children = node.get_payload()
+                    if isinstance(children, list):
+                        for child in children:
+                            # 再帰で子要素を処理 (Message のみ対象)
+                            if isinstance(child, Message):
+                                walk(child, current_order)
+                else:
+                    leaf = self._to_part_data(node, order)
+                    leaf.parent_part_order = parent_order
+                    parts.append(leaf)
+                    order += 1
+            except (UnicodeDecodeError, AttributeError, LookupError, ValueError) as e:
+                logger.warning("Failed to process MIME node: %s", e)
+
+        walk(message, None)
+        return parts
+
+    def _to_part_data(self, node: Message, order: int) -> MessagePartData:
+        """email.message.Message から MessagePartData を生成する共通処理."""
+        content_type = node.get_content_type() or "application/octet-stream"
+        split_ct = content_type.split("/", 1)
+        mime_type = split_ct[0] if len(split_ct) > 0 else None
+        mime_subtype = split_ct[1] if len(split_ct) > 1 else None
+        filename = node.get_filename()
+        content_id_raw = node.get("Content-ID")
+        content_id = content_id_raw.strip("<>") if content_id_raw else None
+        content_disposition = node.get_content_disposition() or node.get("Content-Disposition")
+        payload = node.get_payload(decode=True)
+        size_bytes = len(payload) if isinstance(payload, (bytes, bytearray)) else None
+        is_attachment = (content_disposition == "attachment") or (filename is not None)
+
+        return MessagePartData(
+            mime_type=mime_type,
+            mime_subtype=mime_subtype,
+            filename=filename,
+            content_id=content_id,
+            content_disposition=content_disposition,
+            content=bytes(payload) if isinstance(payload, (bytes, bytearray)) else None,
+            part_order=order,
+            is_attachment=is_attachment,
+            size_bytes=size_bytes,
+        )
+
     def _decode_payload(self, part: Message) -> str:
         """メッセージパートのペイロードをデコード.
 
@@ -242,7 +308,7 @@ class ThunderbirdClient(BaseMailClient[ThunderbirdConfig]):
         except (UnicodeDecodeError, AttributeError):
             return ""
 
-    def get_mails(self, count: int = 10, cursor_datetime: datetime | None = None) -> list[MailData]:
+    def get_mails(self, count: int = 10, cursor_datetime: datetime | None = None) -> list[MessageData]:
         """全メールボックスから新規メールを取得.
 
         Args:
@@ -250,7 +316,7 @@ class ThunderbirdClient(BaseMailClient[ThunderbirdConfig]):
             cursor_datetime (datetime | None): この時刻以降のメールのみ取得.
 
         Returns:
-            list[MailData]: 取得したメールのリスト.
+            list[MessageData]: 取得したメールのリスト.
         """
         all_mails = []
 
@@ -260,7 +326,9 @@ class ThunderbirdClient(BaseMailClient[ThunderbirdConfig]):
 
                 # 日時フィルタリング
                 if cursor_datetime:
-                    filtered_mails = [mail for mail in mails if mail.received_at and mail.received_at > cursor_datetime]
+                    filtered_mails = [
+                        mail for mail in mails if mail.date_received and mail.date_received > cursor_datetime
+                    ]
                     all_mails.extend(filtered_mails)
                 else:
                     all_mails.extend(mails)
@@ -270,7 +338,7 @@ class ThunderbirdClient(BaseMailClient[ThunderbirdConfig]):
                 continue
 
         all_mails.sort(
-            key=lambda x: x.received_at or datetime.min.replace(tzinfo=datetime.now().astimezone().tzinfo),
+            key=lambda x: x.date_received or datetime.min.replace(tzinfo=datetime.now().astimezone().tzinfo),
             reverse=True,
         )
 
@@ -279,14 +347,14 @@ class ThunderbirdClient(BaseMailClient[ThunderbirdConfig]):
 
         return result
 
-    def get_mail(self, message_id: str) -> MailData | None:
+    def get_mail(self, message_id: str) -> MessageData | None:
         """指定されたメッセージIDのメールを取得.
 
         Args:
             message_id: 検索するメッセージID
 
         Returns:
-            MailData | None: 見つかったメール、または None
+            MessageData | None: 見つかったメール、または None
         """
         # 全メールボックスファイルから検索
         for mailbox_file in self.path.mailbox_files:
@@ -315,16 +383,83 @@ if __name__ == "__main__":
         client.connect()
         logger.info("Mailbox files: %s", client.path.mailbox_files)
 
-        # メール取得のテスト
+        # 最新メール1件の取得テスト (MessageData の表示)
         if client.path.mailbox_files:
-            logger.info("Testing mail retrieval...")
-            mails = client.get_mails(count=5)
-            logger.info("Retrieved %d mails", len(mails))
+            logger.info("Testing latest mail retrieval...")
+            mails = client.get_mails(count=1)
+            if not mails:
+                logger.info("No mails found.")
+            else:
+                mail = mails[0]
+                logger.info(
+                    "Latest Mail: subject=%s id=%s received=%s vendor=%s",
+                    mail.subject,
+                    mail.rfc822_message_id,
+                    mail.date_received.isoformat(),
+                    mail.vendor,
+                )
+                if mail.date_sent is not None:
+                    logger.info("  date_sent=%s", mail.date_sent.isoformat())
+                if mail.in_reply_to:
+                    logger.info("  in_reply_to=%s", mail.in_reply_to)
+                if mail.references_list:
+                    logger.info("  references=%s", mail.references_list)
 
-            for i, mail in enumerate(mails, 1):
-                subject = getattr(mail, "subject", "No Subject")
-                sender_name = getattr(mail, "sender_name", "Unknown Sender")
-                logger.info("Mail %d: %s from %s", i, subject, sender_name)
+                parts = mail.parts
+                logger.info("  parts=%d", len(parts))
+                for p in parts:
+                    ct_main = p.mime_type
+                    ct_sub = p.mime_subtype
+                    ct = "/".join([x for x in (ct_main, ct_sub) if x]) or "unknown"
+                    logger.info(
+                        "    - order=%s parent=%s type=%s filename=%s size=%s attach=%s content=%s",
+                        p.part_order,
+                        p.parent_part_order,
+                        ct,
+                        p.filename or "-",
+                        p.size_bytes,
+                        p.is_attachment,
+                        "yes" if p.content else "no",
+                    )
+
+                # Body preview from parts (prefer text/plain, fallback to text/html)
+                text_part = next(
+                    (
+                        pp
+                        for pp in parts
+                        if (pp.is_attachment is False or pp.is_attachment is None)
+                        and pp.mime_type == "text"
+                        and (pp.mime_subtype or "").lower() == "plain"
+                    ),
+                    None,
+                )
+                html_part = next(
+                    (
+                        pp
+                        for pp in parts
+                        if (pp.is_attachment is False or pp.is_attachment is None)
+                        and pp.mime_type == "text"
+                        and (pp.mime_subtype or "").lower() == "html"
+                    ),
+                    None,
+                )
+                body_bytes = (text_part.content if text_part and text_part.content else None) or (
+                    html_part.content if html_part and html_part.content else None
+                )
+                if body_bytes:
+                    try:
+                        body_text = body_bytes.decode("utf-8", errors="ignore")
+                    except UnicodeDecodeError:
+                        body_text = str(body_bytes)
+                    PREVIEW_LIMIT = 500
+                    preview = (
+                        body_text[:PREVIEW_LIMIT] + ("..." if len(body_text) > PREVIEW_LIMIT else "")
+                        if body_text
+                        else ""
+                    )
+                    logger.info("  body_preview=%s", preview)
+                else:
+                    logger.info("  body_preview=(none)")
 
     except FileNotFoundError:
         logger.exception("Thunderbird not found")
