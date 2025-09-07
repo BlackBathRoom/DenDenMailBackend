@@ -45,7 +45,7 @@ class MaillistDTO(BaseModel):
 	subject:str
 	sender_email:EmailStr
 	receiver_email:List[EmailStr]
-  received_at:datetime
+  received_at: datetime
 	your_role: Literal["to", "cc"]
 	priority:Literal[1, 2, 3]
 	is_read:bool
