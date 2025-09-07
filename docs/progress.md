@@ -27,11 +27,11 @@
 - [x] プロファイル探索（WindowsのTB既定パス対応）
 	- 現状: `ThunderbirdPath` がプロファイルとメールボックスを検出します。
 - [~] MBOX/mbox-likeの解析と正規化（Message-ID必須、重複排除）
-	- 現状: `ThunderbirdClient` でmbox解析とMessage-ID取得は実装済みです。DBでの重複排除は未対応です。
+	- 現状: `ThunderbirdClient` で mbox 解析と Message-ID 取得は実装済みです。DBでの重複排除は未対応です。
 - [~] MIMEパーツ抽出（本文text/plain, text/html、添付、CID対応）
-	- 現状: text/plain と text/html の抽出は実装済みです。添付/CIDの保存は未対応です。
+	- 現状: 取得時に MIME パーツへ分割して返却します。ネストはフラットにし `part_order` と `parent_part_order` で親子復元可能。添付/CIDの保存は未対応です。
 - [ ] DB保存（MESSAGES, MESSAGE_PARTS, ADDRESSES, MESSAGE_ADDRESS_MAP）
-	- 現状: 取得データのDB保存ロジックは未実装です。
+	- 現状: 保存ロジックは未実装です。保存時に order→ID 解決で `parent_part_id` を埋める方針です。
 - DoD: サンプルプロファイルから一定件数（例: 100通）を安定して取り込みでき、再実行しても重複挿入が発生しません。
 - [ ] MBOX/mbox-likeの解析と正規化（Message-ID必須、重複排除）
 - [ ] MIMEパーツ抽出（本文text/plain, text/html、添付、CID対応）
@@ -73,7 +73,7 @@
 	- [ ] テスト: `Mail` モデルが正しく定義されているか確認するテストを作成
 - [~] **1-2: Thunderbird メール取得ロジックの実装**
 	- [x] `app/services/mail/thunderbird/thunderbird_path.py` で Thunderbird のプロファイルパスを検出する機能を実装
-	- [x] `app/services/mail/thunderbird/thunderbird.py` で mbox ファイルを読み込む機能を実装
+	- [x] `app/services/mail/thunderbird/thunderbird.py` で mbox ファイルを読み込み、MessageData + MIME パーツを返却
 	- [ ] テスト: ダミーのプロファイルとメールファイルで、正しくパスが検出でき、メールが読み込めるかテスト
 - [~] **1-3: メールデータの永続化処理**
 	- [x] `app/services/database/base.py` でDBセッション管理/CRUD基盤を実装
