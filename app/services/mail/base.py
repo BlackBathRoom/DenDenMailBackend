@@ -1,28 +1,41 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from typing import TypedDict
 
-from models.mail import BaseMail
+from pydantic import Field
+
+from models.message import BaseMessage
+from models.message_part import BaseMessagePart
 from utils.check_implementation import check_implementation
 
 
-class MailData(BaseMail):
+class MessagePartData(BaseMessagePart):
+    """取得時に扱うMIMEパーツデータ(保存ロジックと分離).
+
+    Notes:
+        parent_part_order は直近の親パート (multipart など) の part_order を指す。
+        ルート直下のパートは None。
+    """
+
+    parent_part_order: int | None = None
+
+
+class MessageData(BaseMessage):
     """メールデータの型定義.
 
     メールクライアントから取得した情報も含む.
 
     Attributes:
-        message_id (str): メッセージID.
+    rfc822_message_id (str): RFC 822 Message-ID.
         subject (str): 件名.
-        body (str): メール本文.
-        received_at (datetime): 受信日時.
-        sender_name (str): 送信者名.
-        sender_address (str): 送信者アドレス.
-        mail_folder (str): フォルダ名.
+    date_received (datetime): 受信日時.
+    date_sent (datetime | None): 送信日時(ヘッダーのDate).
         is_read (bool): 既読フラグ.
-        vender (str): メールクライアント名.
+    vendor (str): メールクライアント名.
     """
 
-    body: str
+    parts: list[MessagePartData] = Field(default_factory=list)
 
 
 class BaseClientConfig(TypedDict):
@@ -52,24 +65,24 @@ class BaseMailClient[T: BaseClientConfig](ABC):
 
     @abstractmethod
     @check_implementation
-    def get_mails(self, count: int = 10) -> list[MailData]:
+    def get_mails(self, count: int = 10) -> list[MessageData]:
         """アプリ上に登録されていない新規メールを取得する.
 
         Args:
             count (int): 取得するメールの数.デフォルトは10件.
 
         Returns:
-            list[MailData]: 取得したメールのリスト.
+            list[MessageData]: 取得したメールのリスト.
         """
 
     @abstractmethod
     @check_implementation
-    def get_mail(self, message_id: str) -> MailData | None:
+    def get_mail(self, message_id: str) -> MessageData | None:
         """メッセージIDでメールを取得する.
 
         Args:
             message_id (str): メッセージID.
 
         Returns:
-            MailData | None: メールデータ.見つからない場合はNone.
+            MessageData | None: メールデータ.見つからない場合はNone.
         """

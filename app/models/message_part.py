@@ -7,10 +7,8 @@ from models.common import BaseSQLModel
 
 
 class BaseMessagePart(BaseModel):
-    """MIMEパーツ(ベース)."""
+    """MIMEパーツの共通ベース."""
 
-    message_id: int
-    parent_part_id: int | None = None
     mime_type: str | None = None
     mime_subtype: str | None = None
     filename: str | None = None
@@ -57,6 +55,12 @@ class MessagePart(BaseMessagePart, BaseSQLModel, table=True):
 class MessagePartCreate(BaseMessagePart):
     """作成用モデル."""
 
+    message_id: int
+    parent_part_id: int | None = None
+
 
 class MessagePartRead(BaseMessagePart, BaseSQLModel):
     """読み取り用モデル."""
+
+    message_id: int
+    parent_part_id: int | None = None

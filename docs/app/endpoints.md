@@ -10,7 +10,7 @@
 | `from` | `string` | 送信者アドレス |
 | `to` | `string` | 宛先 |
 | `keyword` | `string` | 本文・件名のキーワード |
-| `vender` | `string` | outlook,Thunderbird |
+| `vendor` | `string` | outlook,Thunderbird |
 - レスポンス例
 
 ```json
@@ -33,7 +33,7 @@
     "your_role":"bcc"
     "received_at": "2025-08-01T08:00:00+09:00",
     "priority": 1,
-    "is_read": "true"
+    "is_read": true
   }
 ]
 
@@ -45,7 +45,7 @@ class MaillistDTO(BaseModel):
 	subject:str
 	sender_email:EmailStr
 	receiver_email:List[EmailStr]
-	received_at:detatime
+  received_at: datetime
 	your_role: Literal["to", "cc"]
 	priority:Literal[1, 2, 3]
 	is_read:bool
@@ -58,7 +58,7 @@ class MaillistDTO(BaseModel):
 
 ---
 
-### 本文取得
+### 本文/パーツ取得
 
 - エンドポイント：`GET /api/mails/{id}`
 - レスポンス例
@@ -73,15 +73,26 @@ class MaillistDTO(BaseModel):
   "received_at": "2025-08-01T09:00:00+09:00",
   "priority": 2,
   "is_read": false,
-  "body": "お疲れ様です。\n会議の時間が変更となりました。",
-  "attachments": [
+  "parts": [
     {
-      "filename": "schedule.pdf",
-      "content_type": "application/pdf"
+      "part_order": 0,
+      "parent_part_order": null,
+      "mime_type": "multipart",
+      "mime_subtype": "alternative"
     },
     {
-      "filename": "notes.txt",
-      "content_type": "text/plain"
+      "part_order": 1,
+      "parent_part_order": 0,
+      "mime_type": "text",
+      "mime_subtype": "plain",
+      "size_bytes": 1234
+    },
+    {
+      "part_order": 2,
+      "parent_part_order": 0,
+      "mime_type": "text",
+      "mime_subtype": "html",
+      "size_bytes": 4321
     }
   ]
 }
@@ -89,7 +100,7 @@ class MaillistDTO(BaseModel):
 ```
 
 ```python
-class MailbodyDTO(BaseModel):
+class MailPartsDTO(BaseModel):
 	id: str
 	subject: str
 	sender_email: EmailStr
@@ -98,12 +109,15 @@ class MailbodyDTO(BaseModel):
 	received_at: datetime
 	priority: Literal[1, 2, 3]
 	is_read: bool
-	body: str
-	attachments: List[AttachmentDTO] = []
+  parts: List[MessagePartDTO]
 	
-class AttachmentDTO(BaseModel):
-	filename:str
-	content_type:str
+class MessagePartDTO(BaseModel):
+  part_order: int
+  parent_part_order: Optional[int]
+  mime_type: str
+  mime_subtype: str
+  filename: Optional[str]
+  size_bytes: Optional[int]
 ```
 
 ### 優先度ルール取得

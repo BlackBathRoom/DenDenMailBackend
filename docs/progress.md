@@ -1,6 +1,6 @@
 # 実装ロードマップ＆進捗
 
-このドキュメントは「現在の実装はいったん無視」し、でんでんメールのバックエンド実装を段階的に進めるためのチェックリストです。必要になったら項目を追加・削除して問題ありません（YAGNI/DRY/KISSを厳守します）。
+このドキュメントはでんでんメールのバックエンド実装を段階的に進めるためのチェックリストです。必要になったら項目を追加・削除して問題ありません（YAGNI/DRY/KISSを厳守します）。
 
 ## 記法
 
@@ -27,18 +27,21 @@
 - [x] プロファイル探索（WindowsのTB既定パス対応）
 	- 現状: `ThunderbirdPath` がプロファイルとメールボックスを検出します。
 - [~] MBOX/mbox-likeの解析と正規化（Message-ID必須、重複排除）
-	- 現状: `ThunderbirdClient` でmbox解析とMessage-ID取得は実装済みです。DBでの重複排除は未対応です。
+	- 現状: `ThunderbirdClient` で mbox 解析と Message-ID 取得は実装済みです。DBでの重複排除は未対応です。
 - [~] MIMEパーツ抽出（本文text/plain, text/html、添付、CID対応）
-	- 現状: text/plain と text/html の抽出は実装済みです。添付/CIDの保存は未対応です。
+	- 現状: 取得時に MIME パーツへ分割して返却します。ネストはフラットにし `part_order` と `parent_part_order` で親子復元可能。添付/CIDの保存は未対応です。
 - [ ] DB保存（MESSAGES, MESSAGE_PARTS, ADDRESSES, MESSAGE_ADDRESS_MAP）
-	- 現状: 取得データのDB保存ロジックは未実装です。
+	- 現状: 保存ロジックは未実装です。保存時に order→ID 解決で `parent_part_id` を埋める方針です。
 - DoD: サンプルプロファイルから一定件数（例: 100通）を安定して取り込みでき、再実行しても重複挿入が発生しません。
 - [ ] MBOX/mbox-likeの解析と正規化（Message-ID必須、重複排除）
 - [ ] MIMEパーツ抽出（本文text/plain, text/html、添付、CID対応）
 - [ ] DB保存（SUMMARIES）
 	- 現状: SummaryモデルとCRUDはありますが、要約生成との連携は未実装です。
 
-- [ ] サマライザIF定義（Sync/Async両対応のポート）
+- [~] サマライザIF定義（Sync/Async両対応のポート）
+	- 現状: BaseGraph/SummarizeAgentGraph により同期パスは提供済み。非同期は未対応。
+- [x] LLMモデル選定・実装（ローカル/オフライン、OpenVINO Phi-4-mini 初期想定）
+	- 現状: OpenVINO Phi-4-mini-instruct のロード/推論パイプラインを実装（オフライン動作）。
 - [ ] 設定管理（.env/pyprojectからの読込、上書きルール）
 - [x] 構造化ログとローテーション（log/app.log）
 	- 現状: 回転ファイル/コンソールのハンドラ構成で稼働します。
@@ -73,11 +76,13 @@
 	- [ ] テスト: `Mail` モデルが正しく定義されているか確認するテストを作成
 - [~] **1-2: Thunderbird メール取得ロジックの実装**
 	- [x] `app/services/mail/thunderbird/thunderbird_path.py` で Thunderbird のプロファイルパスを検出する機能を実装
-	- [x] `app/services/mail/thunderbird/thunderbird.py` で mbox ファイルを読み込む機能を実装
+	- [x] `app/services/mail/thunderbird/thunderbird.py` で mbox ファイルを読み込み、MessageData + MIME パーツを返却
+	- 現状: `__main__` によるスモーク（最新1件の取得・メタ情報出力・パーツ一覧・本文プレビュー再構成）を確認済み
 	- [ ] テスト: ダミーのプロファイルとメールファイルで、正しくパスが検出でき、メールが読み込めるかテスト
 - [~] **1-3: メールデータの永続化処理**
 	- [x] `app/services/database/base.py` でDBセッション管理/CRUD基盤を実装
 	- [x] `app/services/database/mail_crud.py` で `Mail` モデルの CRUD (Create, Read) 処理を実装
+	- [x] `app/services/database/message_crud.py` で `Message` の Read 処理を実装
 	- [ ] テスト: `mail_crud` の各関数が正しく動作するか単体テストを作成
 - [ ] **1-4: API エンドポイントの作成**
 ### M9: 配布/運用
@@ -90,7 +95,9 @@
 	- [x] `app/models/summary.py` に `Summary` モデルを定義
 	- [x] `Message` モデルとの1:1リレーションを設定（Mailはlegacy）
 	- [ ] テスト: `Summary` モデルとリレーションが正しく定義されているか確認
-- [ ] **2-2: サマリー生成ロジックの実装**
+- [~] **2-2: サマリー生成ロジックの実装**
+	- 仕様: 件名と本文（MIMEパーツから再構成）を入力し、短文要約を生成（ローカルLLM、オフライン）。
+	- 現状: `services/ai/summarize/agent.py` の SummarizeAgentGraph でコア処理は実装・スモーク確認済み。件名+本文の組み立て入力とDB保存フロー連携は未実装。
 - 進行中: なし
 - ブロック: なし
 
