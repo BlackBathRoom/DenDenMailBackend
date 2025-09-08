@@ -26,3 +26,6 @@ dev = [
 
 [tool.taskipy.tasks]
 migration = "alembic upgrade head" 
+dev = "cd app && uv run uvicorn main:app --reload"
+fmt = "uv run ruff check --fix && uv run ruff format"
+type = "uv run pyright app"
