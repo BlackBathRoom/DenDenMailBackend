@@ -31,6 +31,7 @@ convention = "google"
     "ARG",
 ]
 "study/**/*.py" = ["ALL"]
+"**/migrations/*.py" = ["ALL"]
 
 [lint.pylint]
 max-args = 6
