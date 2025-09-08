@@ -20,5 +20,9 @@ dev = [
     "pre-commit>=4.2.0",
     "pyright>=1.1.402",
     "ruff>=0.12.1",
+    "taskipy>=1.14.1",
     "uvicorn>=0.34.3",
 ]
+
+[tool.taskipy.tasks]
+migration = "alembic upgrade head" 
