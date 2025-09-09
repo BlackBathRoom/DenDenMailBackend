@@ -91,7 +91,7 @@ class BaseDBManager[TBaseModel: SQLModel, TCreate: BaseModel, TUpdate: (BaseMode
             order_by (list[str] | None): ソートするフィールドのリスト. フィールド名の前に'-'を付けると降順.
 
         Returns:
-            TRead | None: 読み取ったオブジェクト.存在しない場合はNone.
+            list[TBaseModel] | None: 読み取ったオブジェクトのリスト.存在しない場合はNone.
         """
         with Session(engine) as session:
             stmt = select(self.model)
