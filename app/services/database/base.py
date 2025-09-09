@@ -150,7 +150,7 @@ class BaseDBManager[TBaseModel: SQLModel, TCreate: BaseModel, TUpdate: (BaseMode
         with Session(engine) as session:
             db_obj = self.read(engine, conditions=conditions)
 
-            if not db_obj:
+            if db_obj is None:
                 logger.warning("No records found for update with conditions: %s", conditions)
                 return
 
@@ -195,7 +195,7 @@ class BaseDBManager[TBaseModel: SQLModel, TCreate: BaseModel, TUpdate: (BaseMode
         """
         with Session(engine) as session:
             db_obj = self.read(engine, conditions=conditions)
-            if not db_obj:
+            if db_obj is None:
                 logger.warning("No records found for deletion with conditions: %s", conditions)
                 return
 
