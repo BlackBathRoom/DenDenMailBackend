@@ -116,10 +116,23 @@ class BaseDBManager[TBaseModel: SQLModel, TCreate: BaseModel, TUpdate: (BaseMode
                 return [self._convert_model(r, factory=self.model) for r in result]
         return None
 
+    def read_by_id(self, engine: Engine, obj_id: int) -> TBaseModel | None:
+        """IDでレコードを読み取る.
+
+        Args:
+            engine (Engine): SQLAlchemyエンジン.
+            obj_id (int): 読み取るオブジェクトのID.
+
+        Returns:
+            TBaseModel | None: 読み取ったオブジェクト.存在しない場合はNone.
+        """
+        with Session(engine) as session:
+            return session.get(self.model, obj_id)
+
     def update(
         self,
         engine: Engine,
-        obj: TUpdate,
+        obj: TUpdate = None,
         *,
         conditions: list[Condition] | None = None,
     ) -> None:
@@ -149,6 +162,30 @@ class BaseDBManager[TBaseModel: SQLModel, TCreate: BaseModel, TUpdate: (BaseMode
 
             session.commit()
 
+    def update_by_id(self, engine: Engine, obj_id: int, obj: TUpdate = None) -> None:
+        """IDでレコードを更新する.
+
+        Args:
+            engine (Engine): SQLAlchemyエンジン.
+            obj_id (int): 更新するオブジェクトのID.
+            obj (TUpdate): 更新するオブジェクト.
+        """
+        if obj is None:
+            logger.error("This table does not support updates.")
+            return
+
+        with Session(engine) as session:
+            db_obj = self.read_by_id(engine, obj_id)
+            if db_obj is None:
+                logger.warning("No record found for update with ID: %s", obj_id)
+                return
+
+            update_data = obj.model_dump(exclude_unset=True)
+            for key, value in update_data.items():
+                setattr(db_obj, key, value)
+            session.add(db_obj)
+            session.commit()
+
     def delete(self, engine: Engine, *, conditions: list[Condition] | None = None) -> None:
         """レコードを削除する.
 
@@ -165,4 +202,20 @@ class BaseDBManager[TBaseModel: SQLModel, TCreate: BaseModel, TUpdate: (BaseMode
             for record in db_obj:
                 session.delete(record)
 
+            session.commit()
+
+    def delete_by_id(self, engine: Engine, obj_id: int) -> None:
+        """IDでレコードを削除する.
+
+        Args:
+            engine (Engine): SQLAlchemyエンジン.
+            obj_id (int): 削除するオブジェクトのID.
+        """
+        with Session(engine) as session:
+            db_obj = self.read_by_id(engine, obj_id)
+            if db_obj is None:
+                logger.warning("No record found for deletion with ID: %s", obj_id)
+                return
+
+            session.delete(db_obj)
             session.commit()
