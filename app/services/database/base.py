@@ -84,7 +84,6 @@ class BaseDBManager[TBaseModel: SQLModel, TCreate: BaseModel, TUpdate: (BaseMode
 
         Args:
             engine (Engine): SQLAlchemyエンジン.
-            model (type[TRead]): 読み取るオブジェクトの型.
             conditions (list[Condition]): 検索条件のリスト.
             limit (int | None): 取得するレコードの最大数. Noneの場合は制限なし.
             offset (int | None): 取得を開始するレコードのオフセット. Noneの場合は0.
