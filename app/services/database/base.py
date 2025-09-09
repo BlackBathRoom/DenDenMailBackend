@@ -1,19 +1,24 @@
 """データベース関連のサービス層."""
 
-from abc import ABC, abstractmethod
-from typing import overload
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, overload
 
 from pydantic import BaseModel, ValidationError
-from sqlalchemy import Engine
-from sqlmodel import Session, SQLModel
+from sqlmodel import Session, SQLModel, select
 
-from utils.check_implementation import check_implementation
+from services.database.condition import resolve_condition
 from utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from sqlalchemy import Engine
+
+    from services.database.condition import Condition
 
 logger = get_logger(__name__)
 
 
-class BaseDBManager[TBaseModel: SQLModel, TCreate: BaseModel, TRead: SQLModel, TUpdate: (BaseModel, None)](ABC):
+class BaseDBManager[TBaseModel: SQLModel, TCreate: BaseModel, TUpdate: (BaseModel, None)]:
     """データベース操作のベースマネージャー.
 
     Attributes:
@@ -66,76 +71,98 @@ class BaseDBManager[TBaseModel: SQLModel, TCreate: BaseModel, TRead: SQLModel, T
             session.add(create_obj)
             session.commit()
 
-    def _read(self, engine: Engine, obj_id: int, factory: type[TRead]) -> TRead | None:
-        """IDでレコードを読み取る.
-
-        readメソッドの内部で使用.
-
-        ```python
-        def read(self, engine: Engine, obj_id: int) -> TRead | None:
-            # factoryに読み取りモデルを指定して呼び出す
-            return self._read(engine, obj_id, factory=HogeRead)
-        ```
+    def read(
+        self,
+        engine: Engine,
+        *,
+        conditions: list[Condition] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        order_by: list[str] | None = None,
+    ) -> list[TBaseModel] | None:
+        """レコードを読み取る.
 
         Args:
             engine (Engine): SQLAlchemyエンジン.
-            obj_id (int): 読み取り対象のオブジェクトID.
-            factory (type[TRead]): 読み取りモデル.
+            model (type[TRead]): 読み取るオブジェクトの型.
+            conditions (list[Condition]): 検索条件のリスト.
+            limit (int | None): 取得するレコードの最大数. Noneの場合は制限なし.
+            offset (int | None): 取得を開始するレコードのオフセット. Noneの場合は0.
+            order_by (list[str] | None): ソートするフィールドのリスト. フィールド名の前に'-'を付けると降順.
 
         Returns:
             TRead | None: 読み取ったオブジェクト.存在しない場合はNone.
         """
         with Session(engine) as session:
-            obj = session.get(self.model, obj_id)
-            if obj:
-                return self._convert_model(obj, factory=factory)
-            return None
+            stmt = select(self.model)
 
-    @abstractmethod
-    @check_implementation
-    def read(self, engine: Engine, obj_id: int) -> TRead | None:
-        """IDでレコードを読み取り、読み取りモデルで返却.
+            if conditions is not None:
+                for c in conditions:
+                    stmt = stmt.where(resolve_condition(self.model, c))
+
+            if order_by:
+                for field in order_by:
+                    col = getattr(self.model, field.lstrip("-"))
+                    stmt = stmt.order_by(col.desc() if field.startswith("-") else col.asc())
+
+            if limit is not None:
+                stmt = stmt.limit(limit)
+
+            if offset is not None:
+                stmt = stmt.offset(offset)
+
+            result = session.exec(stmt).all()
+            if result:
+                return [self._convert_model(r, factory=self.model) for r in result]
+        return None
+
+    def update(
+        self,
+        engine: Engine,
+        obj: TUpdate,
+        *,
+        conditions: list[Condition] | None = None,
+    ) -> None:
+        """レコードを更新する.
 
         Args:
             engine (Engine): SQLAlchemyエンジン.
-            obj_id (int): 読み取り対象のオブジェクトID.
-
-        Returns:
-            TRead | None: 読み取ったオブジェクト.存在しない場合はNone.
-        """
-
-    def update(self, engine: Engine, obj_id: int, obj: TUpdate) -> None:
-        """IDでレコードを更新する.
-
-        Args:
-            engine (Engine): SQLAlchemyエンジン.
-            obj_id (int): 更新対象のオブジェクトID.
             obj (TUpdate): 更新するオブジェクト.
+            conditions (list[Condition] | None): 更新対象を特定するための条件リスト.
         """
         if obj is None:
-            logger.warning("Update called with None object for ID %s", obj_id)
+            logger.error("This table does not support updates.")
             return
 
         with Session(engine) as session:
-            existing_obj = session.get(self.model, obj_id)
-            if existing_obj:
-                for key, value in obj.model_dump(exclude_unset=True).items():
-                    setattr(existing_obj, key, value)
-                session.commit()
-            else:
-                logger.warning("Object with ID %s not found for update.", obj_id)
+            db_obj = self.read(engine, conditions=conditions)
 
-    def delete(self, engine: Engine, obj_id: int) -> None:
-        """IDでレコードを削除する.
+            if not db_obj:
+                logger.warning("No records found for update with conditions: %s", conditions)
+                return
+
+            for record in db_obj:
+                update_data = obj.model_dump(exclude_unset=True)
+                for key, value in update_data.items():
+                    setattr(record, key, value)
+                session.add(record)
+
+            session.commit()
+
+    def delete(self, engine: Engine, *, conditions: list[Condition] | None = None) -> None:
+        """レコードを削除する.
 
         Args:
             engine (Engine): SQLAlchemyエンジン.
-            obj_id (int): 削除対象のオブジェクトID.
+            conditions (list[Condition] | None): 削除対象を特定するための条件リスト.
         """
         with Session(engine) as session:
-            obj = session.get(self.model, obj_id)
-            if obj:
-                session.delete(obj)
-                session.commit()
-            else:
-                logger.warning("Object with ID %s not found for deletion.", obj_id)
+            db_obj = self.read(engine, conditions=conditions)
+            if not db_obj:
+                logger.warning("No records found for deletion with conditions: %s", conditions)
+                return
+
+            for record in db_obj:
+                session.delete(record)
+
+            session.commit()
