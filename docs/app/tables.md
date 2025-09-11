@@ -100,6 +100,13 @@ erDiagram
         datetime updated_at
     }
 
+    VENDORS {
+        int id PK
+        varchar name "UNIQUE"
+        datetime created_at
+        datetime updated_at
+    }
+
     %% Relationships
     MESSAGES ||--|| SUMMARIES : "has one"
     MESSAGES ||--o{ MESSAGE_ADDRESS_MAP : "addresses"
@@ -114,6 +121,8 @@ erDiagram
     TAGS ||--o{ MESSAGE_TAG_MAP : "tags"
 
     ADDRESSES ||--o| PRIORITY_PERSONS : "priority"
+
+    MESSAGES ||--o{ VENDORS : "imported from"
 ```
 
 ## 詳細
@@ -150,11 +159,24 @@ erDiagram
 | is_replied | boolean |  | 返信済みフラグ | ○ |
 | is_flagged | boolean |  | フラグ付与フラグ | ○ |
 | is_forwarded | boolean |  | 転送済みフラグ | ○ |
-| vendor | varchar |  | 取得元クライアント識別子（例: thunderbird） | × |
+| vendor_id | int | FK → VENDORS.id | 取得元クライアントのID | × |
 | created_at | datetime |  | レコード作成日時 | × |
 | updated_at | datetime |  | レコード更新日時（自動更新） | × |
 
 備考: 複合インデックス (is_read, date_received DESC) を推奨。
+
+---
+
+### VENDORS（取得元クライアント）
+
+メールの取得元クライアント/サービスを管理するマスタテーブル。
+
+| フィールド | 型 | 制約 | 説明 | 更新可 |
+|---|---|---|---|---|
+| id | int | PK | 内部ID | × |
+| name | varchar | UNIQUE | クライアント/サービス名（例: thunderbird, gmail_import） | × |
+| created_at | datetime |  | レコード作成日時 | × |
+| updated_at | datetime |  | レコード更新日時（自動更新） | × |
 
 ---
 
