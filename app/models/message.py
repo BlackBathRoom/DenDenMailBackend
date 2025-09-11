@@ -1,15 +1,10 @@
-from __future__ import annotations
-
-from datetime import datetime  # noqa: TC003 # pydanticバリデーションのために必要
-from typing import TYPE_CHECKING
+from datetime import datetime
 
 from pydantic import BaseModel
 from sqlmodel import Field, Relationship, SQLModel
 
 from models.common import BaseSQLModel
-
-if TYPE_CHECKING:
-    from models.summary import Summary
+from models.summary import Summary
 
 
 class BaseMessage(BaseModel):

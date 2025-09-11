@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from pydantic import BaseModel, EmailStr
 from sqlmodel import Field, SQLModel
 
