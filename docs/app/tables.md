@@ -107,6 +107,14 @@ erDiagram
         datetime updated_at
     }
 
+    FOLDERS {
+        int id PK
+        varchar name "UNIQUE"
+        varchar system_type "UNIQUE"
+        datetime created_at
+        datetime updated_at
+    }
+
     %% Relationships
     MESSAGES ||--|| SUMMARIES : "has one"
     MESSAGES ||--o{ MESSAGE_ADDRESS_MAP : "addresses"
@@ -123,6 +131,7 @@ erDiagram
     ADDRESSES ||--o| PRIORITY_PERSONS : "priority"
 
     MESSAGES ||--o{ VENDORS : "imported from"
+    MESSAGES }o--|| FOLDERS : "is in"
 ```
 
 ## 詳細
@@ -160,10 +169,25 @@ erDiagram
 | is_flagged | boolean |  | フラグ付与フラグ | ○ |
 | is_forwarded | boolean |  | 転送済みフラグ | ○ |
 | vendor_id | int | FK → VENDORS.id | 取得元クライアントのID | × |
+| folder_id | int | FK → FOLDERS.id | 所属フォルダのID | ○ |
 | created_at | datetime |  | レコード作成日時 | × |
 | updated_at | datetime |  | レコード更新日時（自動更新） | × |
 
 備考: 複合インデックス (is_read, date_received DESC) を推奨。
+
+---
+
+### FOLDERS（フォルダ）
+
+メールが所属するフォルダを管理するマスタテーブル。INBOX, Sent など。
+
+| フィールド | 型 | 制約 | 説明 | 更新可 |
+|---|---|---|---|---|
+| id | int | PK | 内部ID | × |
+| name | varchar | UNIQUE | フォルダ名（例: INBOX, Sent, Drafts） | ○ |
+| system_type | varchar | UNIQUE | システム固定フォルダ種別（例: inbox, sent）。NULL許容 | × |
+| created_at | datetime |  | レコード作成日時 | × |
+| updated_at | datetime |  | レコード更新日時（自動更新） | × |
 
 ---
 
