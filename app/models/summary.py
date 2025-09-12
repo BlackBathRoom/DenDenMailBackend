@@ -1,8 +1,14 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from pydantic import BaseModel
 from sqlmodel import Column, Field, ForeignKey, Integer, Relationship, SQLModel
 
 from models.common import BaseSQLModel
-from models.message import Message
+
+if TYPE_CHECKING:
+    from models.message import Message
 
 
 class BaseSummary(BaseModel):

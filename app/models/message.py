@@ -1,14 +1,25 @@
-from datetime import datetime
+from __future__ import annotations
+
+from datetime import datetime  # noqa: TC003 # datetime is used in validation
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Column, Field, ForeignKey, Integer, Relationship, SQLModel
 
 from models.common import BaseSQLModel
-from models.summary import Summary
+
+if TYPE_CHECKING:
+    from models.folder import Folder
+    from models.summary import Summary
+    from models.vendor import Vendor
 
 
 class BaseMessage(BaseModel):
-    """MESSAGES のベースモデル."""
+    """MESSAGES のベースモデル.
+
+    vendor_id: 取得元クライアント(Vendor)へのFK
+    folder_id: 所属フォルダ(Folder)へのFK (NULL可 / 移動で更新可)
+    """
 
     rfc822_message_id: str
     subject: str
@@ -20,7 +31,8 @@ class BaseMessage(BaseModel):
     is_replied: bool = False
     is_flagged: bool = False
     is_forwarded: bool = False
-    vendor: str
+    vendor_id: int
+    folder_id: int | None = None
 
 
 class Message(BaseMessage, BaseSQLModel, table=True):
@@ -29,8 +41,17 @@ class Message(BaseMessage, BaseSQLModel, table=True):
     rfc822_message_id: str = Field(unique=True, index=True)
     date_received: datetime = Field(index=True)
 
-    # 1:1 Summary
-    summary: Summary | None = Relationship(back_populates="message")
+    # FK 定義 (明示的に ondelete 設定)
+    vendor_id: int = Field(sa_column=Column(Integer, ForeignKey("vendor.id", ondelete="RESTRICT"), nullable=False))
+    folder_id: int | None = Field(
+        default=None,
+        sa_column=Column(Integer, ForeignKey("folder.id", ondelete="SET NULL"), nullable=True),
+    )
+
+    # Relationships
+    vendor: Vendor = Relationship(back_populates="messages")
+    folder: Folder | None = Relationship(back_populates="messages")
+    summary: Summary | None = Relationship(back_populates="message")  # 1:1 Summary
 
 
 class MessageCreate(BaseMessage):
@@ -48,3 +69,4 @@ class MessageUpdate(SQLModel):
     is_replied: bool | None = None
     is_flagged: bool | None = None
     is_forwarded: bool | None = None
+    folder_id: int | None = None  # フォルダ移動を許可

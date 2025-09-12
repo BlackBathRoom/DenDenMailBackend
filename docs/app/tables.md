@@ -16,7 +16,8 @@ erDiagram
         boolean is_replied
         boolean is_flagged
         boolean is_forwarded
-        varchar vendor
+        int vendor_id FK
+        int folder_id FK
         datetime created_at
         datetime updated_at
     }
@@ -130,8 +131,8 @@ erDiagram
 
     ADDRESSES ||--o| PRIORITY_PERSONS : "priority"
 
-    MESSAGES ||--o{ VENDORS : "imported from"
-    MESSAGES }o--|| FOLDERS : "is in"
+    VENDORS ||--o{ MESSAGES : "provides"
+    FOLDERS ||--o{ MESSAGES : "contains"
 ```
 
 ## 詳細
@@ -149,6 +150,7 @@ erDiagram
     - TAGS: tag_name（タグ名のリネーム）
     - PRIORITY_WORDS: priority（重みの調整）
     - PRIORITY_PERSONS: priority（重みの調整）
+    - FOLDERS: name（表示名変更。system_type は固定）
 
 
 ### MESSAGES（メール本体）
