@@ -177,11 +177,6 @@ class VendorRead(BaseVendor, BaseSQLModel):
     pass
 
 
-class VendorUpdate(BaseModel):
-    # name は更新不可ポリシーなので空 (将来追加する場合用意)
-    pass
-
-
 Message.vendor = relationship("Vendor", back_populates="messages")
 Message.folder = relationship("Folder", back_populates="messages")
 Message.summary = relationship("Summary", back_populates="message")
