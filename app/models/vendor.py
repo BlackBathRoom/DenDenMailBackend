@@ -3,7 +3,6 @@ from ._message_registry import (
     Vendor,
     VendorCreate,
     VendorRead,
-    VendorUpdate,
 )
 
 __all__ = [
@@ -11,5 +10,4 @@ __all__ = [
     "Vendor",
     "VendorCreate",
     "VendorRead",
-    "VendorUpdate",
 ]

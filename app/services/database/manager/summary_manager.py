@@ -1,5 +1,5 @@
 from models.summary import Summary, SummaryCreate, SummaryUpdate
-from services.database.base import BaseDBManager
+from services.database.manager.base import BaseDBManager
 
 
 class SummaryDBManager(BaseDBManager[Summary, SummaryCreate, SummaryUpdate]):
