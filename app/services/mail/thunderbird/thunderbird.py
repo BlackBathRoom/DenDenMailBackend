@@ -9,12 +9,13 @@ from email.message import Message
 from email.utils import parseaddr, parsedate_to_datetime
 from pathlib import Path
 
-from app_conf import MailVender
 from services.mail.base import BaseClientConfig, BaseMailClient, MessageData, MessagePartData
 from services.mail.thunderbird.thunderbird_path import ThunderbirdPath
 from utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+ALL_GET_MAILS_COUNT = -1
 
 
 class ThunderbirdConfig(BaseClientConfig):
@@ -24,7 +25,9 @@ class ThunderbirdConfig(BaseClientConfig):
 class ThunderbirdClient(BaseMailClient[ThunderbirdConfig]):
     """Thunderbirdメールクライアントの実装."""
 
-    def __init__(self, config: ThunderbirdConfig) -> None:
+    def __init__(self, config: ThunderbirdConfig | None = None) -> None:
+        if config is None:
+            config = {"connection_type": "local"}
         super().__init__(config)
         self.path = ThunderbirdPath()
 
@@ -60,7 +63,7 @@ class ThunderbirdClient(BaseMailClient[ThunderbirdConfig]):
             messages = list(mbox)
             messages.reverse()
 
-            for i, message in enumerate(messages[:count]):
+            for i, message in enumerate(messages[: count if count == ALL_GET_MAILS_COUNT else None]):
                 try:
                     mail_data = self._parse_single_mail(message)
                     if mail_data:
@@ -107,7 +110,8 @@ class ThunderbirdClient(BaseMailClient[ThunderbirdConfig]):
                 is_replied=False,
                 is_flagged=False,
                 is_forwarded=False,
-                vendor=MailVender.THUNDERBIRD,
+                vendor_id=0,  # db登録時に設定
+                folder_id=None,  # db登録時に設定
                 parts=parts,
             )
 
@@ -312,13 +316,18 @@ class ThunderbirdClient(BaseMailClient[ThunderbirdConfig]):
         """全メールボックスから新規メールを取得.
 
         Args:
-            count (int): 取得するメールの数.デフォルトは10件.
+            count (int): 取得するメールの数.デフォルトは10件.-1は全件取得.
             cursor_datetime (datetime | None): この時刻以降のメールのみ取得.
 
         Returns:
             list[MessageData]: 取得したメールのリスト.
         """
         all_mails = []
+
+        if count < ALL_GET_MAILS_COUNT or count == 0:
+            msg = "Count must be -1 (all) or a positive integer"
+            logger.error(msg)
+            raise ValueError(msg)
 
         for mailbox_file in self.path.mailbox_files:
             try:
@@ -391,13 +400,6 @@ if __name__ == "__main__":
                 logger.info("No mails found.")
             else:
                 mail = mails[0]
-                logger.info(
-                    "Latest Mail: subject=%s id=%s received=%s vendor=%s",
-                    mail.subject,
-                    mail.rfc822_message_id,
-                    mail.date_received.isoformat(),
-                    mail.vendor,
-                )
                 if mail.date_sent is not None:
                     logger.info("  date_sent=%s", mail.date_sent.isoformat())
                 if mail.in_reply_to:
