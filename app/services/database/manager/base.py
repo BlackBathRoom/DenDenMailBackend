@@ -7,13 +7,13 @@ from typing import TYPE_CHECKING, overload
 from pydantic import BaseModel, ValidationError
 from sqlmodel import Session, SQLModel, select
 
-from services.database.condition import resolve_condition
+from services.database.manager.condition import resolve_condition
 from utils.logging import get_logger
 
 if TYPE_CHECKING:
     from sqlalchemy import Engine
 
-    from services.database.condition import Condition
+    from services.database.manager.condition import Condition
 
 logger = get_logger(__name__)
 
