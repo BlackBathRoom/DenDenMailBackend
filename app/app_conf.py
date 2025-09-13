@@ -3,10 +3,9 @@ from pathlib import Path
 
 
 # type
-class MailVender(str, Enum):
+class MailVendor(str, Enum):
     """メールクライアントの列挙型."""
 
-    OUTLOOK = "Outlook"
     THUNDERBIRD = "Thunderbird"
 
 

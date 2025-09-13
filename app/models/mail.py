@@ -5,7 +5,7 @@ from datetime import datetime  # noqa: TC003 # pydanticバリデーションの�
 from pydantic import BaseModel, EmailStr
 from sqlmodel import VARCHAR, Column, Field, SQLModel
 
-from app_conf import MailVender  # noqa: TC001 # pydanticバリデーションのために必要
+from app_conf import MailVendor  # noqa: TC001 # pydanticバリデーションのために必要
 from models.common import BaseSQLModel
 
 
@@ -20,7 +20,7 @@ class BaseMail(BaseModel):
         sender_address (pydantic.EmailStr): 送信者アドレス.
         mail_folder (str): フォルダ.
         is_read (bool): 既読フラグ.
-        vender (MailVender): メールクライアント名.
+        vender (MailVendor): メールクライアント名.
     """
 
     message_id: str
@@ -30,7 +30,7 @@ class BaseMail(BaseModel):
     sender_address: EmailStr
     mail_folder: str
     is_read: bool = False
-    vender: MailVender
+    vender: MailVendor
 
 
 class Mail(BaseMail, BaseSQLModel, table=True):
@@ -47,11 +47,11 @@ class Mail(BaseMail, BaseSQLModel, table=True):
         is_read (bool): 既読フラグ.
         created_at (datetime): アプリdbに登録された日時.
         updated_at (datetime): アプリdbで更新された日時.
-        vender (MailVender): メールクライアント名.
+        vender (MailVendor): メールクライアント名.
     """
 
     message_id: str = Field(index=True, unique=True)
-    vender: MailVender = Field(sa_column=Column(VARCHAR))
+    vender: MailVendor = Field(sa_column=Column(VARCHAR))
 
     # 旧モデル。MESSAGESへ移行予定。リレーションは未使用化。
 
@@ -69,7 +69,7 @@ class MailCreate(BaseMail):
         sender_address (str): 送信者アドレス.
         mail_folder (str): フォルダ.
         is_read (bool): 既読フラグ.
-        vender (MailVender): メールクライアント名.
+        vender (MailVendor): メールクライアント名.
     """
 
 
@@ -88,7 +88,7 @@ class MailRead(BaseMail, BaseSQLModel):
         mail_folder (str): フォルダ.
         is_read (bool): 既読フラグ.
         created_at (datetime): アプリdbに登録された日時.
-        vender (MailVender): メールクライアント名.
+        vender (MailVendor): メールクライアント名.
     """
 
 
