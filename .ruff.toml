@@ -38,7 +38,7 @@ max-args = 6
 
 [lint.isort]
 known-first-party = [
-    "models", "dtos", "routes", "services", "utils", "websocket_routers", "app_conf"
+    "models", "dtos", "routers", "services", "utils", "websocket_routers", "app_conf"
 ]
 force-single-line = false
 force-sort-within-sections = false
