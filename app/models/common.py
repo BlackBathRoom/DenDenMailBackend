@@ -16,7 +16,7 @@ class TimestampedSQLModel(SQLModel):
 class IdModel(SQLModel):
     """数値ID主キーモデル."""
 
-    id: int | None = Field(primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
 
 
 class BaseSQLModel(IdModel, TimestampedSQLModel):
