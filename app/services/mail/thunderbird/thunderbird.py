@@ -9,6 +9,7 @@ from email.message import Message
 from email.utils import parseaddr, parsedate_to_datetime
 from pathlib import Path
 
+from app_conf import MailVendor
 from services.mail.base import BaseClientConfig, BaseMailClient, MessageData, MessagePartData
 from services.mail.thunderbird.thunderbird_path import ThunderbirdPath
 from utils.logging import get_logger
@@ -112,6 +113,7 @@ class ThunderbirdClient(BaseMailClient[ThunderbirdConfig]):
                 is_forwarded=False,
                 vendor_id=0,  # db登録時に設定
                 folder_id=None,  # db登録時に設定
+                mail_vendor=MailVendor.THUNDERBIRD,
                 parts=parts,
             )
 

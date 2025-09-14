@@ -5,6 +5,7 @@ from typing import TypedDict
 
 from pydantic import Field
 
+from app_conf import MailVendor  # noqa: TC001
 from models.message import BaseMessage
 from models.message_part import BaseMessagePart
 from utils.check_implementation import check_implementation
@@ -35,6 +36,8 @@ class MessageData(BaseMessage):
     vendor (str): メールクライアント名.
     """
 
+    # dbのidを検索し含めるのは冗長なのでenumをフィールドで保持、判断
+    mail_vendor: MailVendor
     parts: list[MessagePartData] = Field(default_factory=list)
 
 
