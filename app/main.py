@@ -2,12 +2,13 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from routers.demo_mail import router as demo_mail_router
-from routers.demo_rules import router as demo_rules_router
-from routers.demo_summary import router as demo_summary_router
 from sqlmodel import SQLModel
 from starlette.middleware.cors import CORSMiddleware
 
+from routers.demo_mail import router as demo_mail_router
+from routers.demo_rules import router as demo_rules_router
+from routers.demo_summary import router as demo_summary_router
+from routers.messages import router as messages_router
 from services.database.engine import get_engine
 from services.database.seed import seed_core_data
 from utils.logging import get_logger
@@ -44,6 +45,7 @@ def setup_server() -> FastAPI:
         ("api", demo_summary_router),
         ("api", demo_mail_router),
         ("api", demo_rules_router),
+        ("api", messages_router),
     ]
 
     for prefix, router in routers:

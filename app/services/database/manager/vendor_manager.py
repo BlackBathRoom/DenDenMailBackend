@@ -38,6 +38,6 @@ class VendorDBManager(BaseDBManager[Vendor, VendorCreate, None]):
         if self.is_registered(engine, vendor):
             logger.info("Vendor %s is already registered.", vendor.value)
             return
-        create_obj = VendorCreate(name=vendor.value)
+        create_obj = VendorCreate(name=vendor)
         self.create(engine, create_obj)
         logger.info("Vendor %s registered successfully.", vendor.value)
