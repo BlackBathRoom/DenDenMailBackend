@@ -1,10 +1,16 @@
-from sqlalchemy import Engine
+from __future__ import annotations
 
-from app_conf import MailVendor
+from typing import TYPE_CHECKING
+
 from models.vendor import Vendor, VendorCreate
 from services.database.manager.base import BaseDBManager
 from services.database.manager.condition import FieldCondition
 from utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from sqlalchemy import Engine
+
+    from app_conf import MailVendor
 
 logger = get_logger(__name__)
 

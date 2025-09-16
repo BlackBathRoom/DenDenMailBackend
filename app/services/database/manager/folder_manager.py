@@ -1,9 +1,14 @@
 """Folder テーブル用DBマネージャ."""
 
-from sqlalchemy import Engine
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from models.folder import Folder, FolderCreate, FolderUpdate
 from services.database.manager.base import BaseDBManager
+
+if TYPE_CHECKING:
+    from sqlalchemy import Engine
 
 
 class FolderDBManager(BaseDBManager[Folder, FolderCreate, FolderUpdate]):
