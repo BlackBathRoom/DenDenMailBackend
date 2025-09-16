@@ -8,11 +8,13 @@ from app_conf import MailVendor
 from models.message import MessageCreate
 from models.message_part import MessagePartCreate
 from services.database.engine import get_engine
+from services.database.manager import (
+    FolderDBManager,
+    MessageDBManager,
+    MessagePartDBManager,
+    VendorDBManager,
+)
 from services.database.manager.condition import FieldCondition
-from services.database.manager.folder_manager import FolderDBManager
-from services.database.manager.message_manager import MessageDBManager
-from services.database.manager.message_part_manager import MessagePartDBManager
-from services.database.manager.vendor_manager import VendorDBManager
 from services.mail.base import BaseClientConfig, BaseMailClient
 from services.mail.thunderbird import ThunderbirdClient
 from utils.logging import get_logger
