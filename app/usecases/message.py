@@ -9,6 +9,7 @@ from models.message import MessageCreate
 from models.message_part import MessagePartCreate
 from services.database.engine import get_engine
 from services.database.manager.condition import FieldCondition
+from services.database.manager.folder_manager import FolderDBManager
 from services.database.manager.message_manager import MessageDBManager
 from services.database.manager.message_part_manager import MessagePartDBManager
 from services.database.manager.vendor_manager import VendorDBManager
@@ -78,7 +79,7 @@ def _ensure_vendor(engine: Engine, vendor: MailVendor) -> int:
     return vendor_id
 
 
-def save_mail(mail: MessageData, engine: Engine | None = None) -> None:
+def save_message(message: MessageData, engine: Engine | None = None) -> None:
     """単一のメールをDBへ保存する.
 
     - RFC822 Message-ID で重複チェックし、既存ならスキップ。
@@ -92,57 +93,60 @@ def save_mail(mail: MessageData, engine: Engine | None = None) -> None:
     message_manager = MessageDBManager()
     exists = message_manager.read(
         engine,
-        conditions=[FieldCondition(operator="eq", field="rfc822_message_id", value=mail.rfc822_message_id)],
+        conditions=[FieldCondition(operator="eq", field="rfc822_message_id", value=message.rfc822_message_id)],
         limit=1,
     )
     if exists:
-        logger.info("Message already exists: %s", mail.rfc822_message_id)
+        logger.info("Message already exists: %s", message.rfc822_message_id)
         return
 
     # Vendor を確保
-    vendor_id = _ensure_vendor(engine, mail.mail_vendor)
+    vendor_id = _ensure_vendor(engine, message.mail_vendor)
+
+    # フォルダ名から folder_id を解決 (見つからなければ None のまま)
+    folder_id = FolderDBManager().get_id(engine, message.folder) if message.folder else None
 
     # Message を保存
     create_obj = MessageCreate(
-        rfc822_message_id=mail.rfc822_message_id,
-        subject=mail.subject,
-        date_sent=mail.date_sent,
-        date_received=mail.date_received,
-        in_reply_to=mail.in_reply_to,
-        references_list=mail.references_list,
-        is_read=mail.is_read,
-        is_replied=mail.is_replied,
-        is_flagged=mail.is_flagged,
-        is_forwarded=mail.is_forwarded,
+        rfc822_message_id=message.rfc822_message_id,
+        subject=message.subject,
+        date_sent=message.date_sent,
+        date_received=message.date_received,
+        in_reply_to=message.in_reply_to,
+        references_list=message.references_list,
+        is_read=message.is_read,
+        is_replied=message.is_replied,
+        is_flagged=message.is_flagged,
+        is_forwarded=message.is_forwarded,
         vendor_id=vendor_id,
-        folder_id=mail.folder_id,  # 無指定なら None のまま
+        folder_id=folder_id,
     )
     message_manager.create(engine, create_obj)
 
     # 作成したレコードを再取得して ID を得る
     created = message_manager.read(
         engine,
-        conditions=[FieldCondition(operator="eq", field="rfc822_message_id", value=mail.rfc822_message_id)],
+        conditions=[FieldCondition(operator="eq", field="rfc822_message_id", value=message.rfc822_message_id)],
         limit=1,
     )
     if not created:
-        msg = f"Failed to read back created message: {mail.rfc822_message_id}"
+        msg = f"Failed to read back created message: {message.rfc822_message_id}"
         logger.error(msg)
         raise RuntimeError(msg)
     message_id = created[0].id
     if message_id is None:
-        msg = f"Created message had no id: {mail.rfc822_message_id}"
+        msg = f"Created message had no id: {message.rfc822_message_id}"
         logger.error(msg)
         raise RuntimeError(msg)
 
     # メッセージに含まれるMIMEパーツがある場合は保存する
-    if getattr(mail, "parts", None):
+    if message.parts:
         part_manager = MessagePartDBManager()
         order_to_id: dict[int, int] = {}
 
         # order の昇順で処理 (生成側は順序で付与済みだが念のためソート)
         sorted_parts = sorted(
-            mail.parts,
+            message.parts,
             key=lambda p: (p.part_order if p.part_order is not None else 1_000_000),
         )
 
@@ -182,34 +186,34 @@ def save_mail(mail: MessageData, engine: Engine | None = None) -> None:
                 if created_part_id is not None:
                     order_to_id[p.part_order] = created_part_id
 
-    logger.info("Saved message: %s", mail.rfc822_message_id)
+    logger.info("Saved message: %s", message.rfc822_message_id)
 
 
-def save_mails(mails: list[MessageData], engine: Engine | None = None) -> None:
+def save_messages(messages: list[MessageData], engine: Engine | None = None) -> None:
     """複数のメールをまとめてDBへ保存する.
 
     - Vendor ごとに最小限の登録チェックを行う。
     - 既存の RFC822 Message-ID は事前にスキップ。
-    - 各メールは `save_mail` の単体処理を再利用。
+    - 各メールは `save_message` の単体処理を再利用。
     """
-    if not mails:
+    if not messages:
         logger.info("save_mails called with empty list; nothing to do")
         return
 
     engine = engine or get_engine()
 
     # Vendor 事前保証 (重複チェックのため先に列挙)
-    vendors = {m.mail_vendor for m in mails}
+    vendors = {m.mail_vendor for m in messages}
     for v in vendors:
         try:
             _ensure_vendor(engine, v)
         except Exception:
-            logger.exception("Failed to ensure vendor: %s", getattr(v, "value", v))
+            logger.exception("Failed to ensure vendor: %s", v.value)
 
     # 既存メッセージの事前スキャンで重複スキップ集合を作成
     message_manager = MessageDBManager()
     existing_ids: set[str] = set()
-    for m in mails:
+    for m in messages:
         try:
             exists = message_manager.read(
                 engine,
@@ -225,13 +229,13 @@ def save_mails(mails: list[MessageData], engine: Engine | None = None) -> None:
     saved = 0
     skipped = 0
     failed = 0
-    for m in mails:
+    for m in messages:
         if m.rfc822_message_id in existing_ids:
             skipped += 1
             logger.info("Skip existing message: %s", m.rfc822_message_id)
             continue
         try:
-            save_mail(m, engine)
+            save_message(m, engine)
             saved += 1
         except Exception:
             failed += 1
