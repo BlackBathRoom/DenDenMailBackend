@@ -38,6 +38,7 @@ class MessageData(BaseMessage):
 
     # dbのidを検索し含めるのは冗長なのでenumをフィールドで保持、判断
     mail_vendor: MailVendor
+    folder: str | None = Field(default="INBOX")
     parts: list[MessagePartData] = Field(default_factory=list)
 
 
