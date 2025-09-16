@@ -15,6 +15,19 @@ class VendorDBManager(BaseDBManager[Vendor, VendorCreate, None]):
     def __init__(self, model: type[Vendor] = Vendor) -> None:
         super().__init__(model)
 
+    def get_id(self, engine: Engine, vendor: MailVendor) -> int | None:
+        """指定されたベンダーのIDを取得する.
+
+        Args:
+            engine (Engine): SQLAlchemyエンジン.
+            vendor (MailVendor): ベンダー.
+
+        Returns:
+            int | None: ベンダーが存在すればそのID、そうでなければ None.
+        """
+        stmt = self.read(engine, conditions=[FieldCondition(operator="eq", field="name", value=vendor.value)])
+        return stmt[0].id if stmt else None
+
     def is_registered(self, engine: Engine, vendor: MailVendor) -> bool:
         """指定されたベンダーが登録されているか確認する.
 

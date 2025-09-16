@@ -9,6 +9,7 @@ from .priority_person_manager import PriorityPersonDBManager
 from .priority_word_manager import PriorityWordDBManager
 from .summary_manager import SummaryDBManager
 from .tag_manager import TagDBManager
+from .vendor_manager import VendorDBManager
 
 __all__ = [
     "AddressDBManager",
@@ -22,4 +23,5 @@ __all__ = [
     "PriorityWordDBManager",
     "SummaryDBManager",
     "TagDBManager",
+    "VendorDBManager",
 ]
