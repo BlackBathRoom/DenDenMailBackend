@@ -19,6 +19,8 @@
 	- 現状: 全テーブルのSQLModelを実装。Message（MESSAGES）を正としてSummaryは1:1でMessage参照。主要FKにON DELETE CASCADEを付与し、必要なCHECK/INDEXも追加。既存のMailはlegacyとして残置。
 - [x] セッション/エンジン初期化（SQLite、トランザクション方針）
 	- 現状: `app/app_conf.py` で `create_engine` を初期化済みです。
+- [x] FOLDERS初期データシード（Inbox, Trash 自動投入）
+	- 現状: アプリ起動時 `lifespan` で `create_all` 後に未存在なら挿入します。
 - [ ] マイグレーション方針（初期版は自動生成でもOK、YAGNIで最小）
 	- 現状: 未決定です。
 - DoD: 全テーブルを作成でき、基本CRUDがスキーマどおりに動作し、ユニーク/外部キー制約が期待どおりに機能します。
@@ -27,11 +29,11 @@
 - [x] プロファイル探索（WindowsのTB既定パス対応）
 	- 現状: `ThunderbirdPath` がプロファイルとメールボックスを検出します。
 - [~] MBOX/mbox-likeの解析と正規化（Message-ID必須、重複排除）
-	- 現状: `ThunderbirdClient` で mbox 解析と Message-ID 取得は実装済みです。DBでの重複排除は未対応です。
+	- 現状: `ThunderbirdClient` で mbox 解析と Message-ID 取得は実装済みです。取り込み時に `rfc822_message_id` による事前スキップで重複挿入を回避します。DBでの一意制約による重複排除は未対応です。
 - [~] MIMEパーツ抽出（本文text/plain, text/html、添付、CID対応）
 	- 現状: 取得時に MIME パーツへ分割して返却します。ネストはフラットにし `part_order` と `parent_part_order` で親子復元可能。添付/CIDの保存は未対応です。
-- [ ] DB保存（MESSAGES, MESSAGE_PARTS, ADDRESSES, MESSAGE_ADDRESS_MAP）
-	- 現状: 保存ロジックは未実装です。保存時に order→ID 解決で `parent_part_id` を埋める方針です。
+- [~] DB保存（MESSAGES, MESSAGE_PARTS, ADDRESSES, MESSAGE_ADDRESS_MAP）
+	- 現状: `app/usecases/mail.py` の `save_mail`/`save_mails` で MESSAGES と MESSAGE_PARTS の保存を実装しました。パーツの親子関係は order から解決して `parent_part_id` を設定します。ADDRESSES と MESSAGE_ADDRESS_MAP は未実装です。
 - DoD: サンプルプロファイルから一定件数（例: 100通）を安定して取り込みでき、再実行しても重複挿入が発生しません。
 - [ ] MBOX/mbox-likeの解析と正規化（Message-ID必須、重複排除）
 - [ ] MIMEパーツ抽出（本文text/plain, text/html、添付、CID対応）
@@ -51,10 +53,10 @@
 ### M4: スコアリング・検索
 - [ ] クエリAPIの設計（ページング/並び替え/既読フィルタ）
 - 完了: M0（ドキュメント土台）、M1（モデル定義）
-- 進行中: M2（取得/解析 一部）、M7（ログ）
+- 進行中: M2（取得/解析 一部）、M5（API）、M7（ログ・永続化）
 - ブロック: なし
 - DoD: 指定条件で安定して並べ替えが可能で、ベンチマークで1000通規模でも体感的に速いです。
-総合進捗（目安）: 3/10 マイルストーン
+総合進捗（目安）: 4/10 マイルストーン
 ### M5: API（FastAPI）
 
 - [ ] メッセージ一覧/詳細/本文パーツ取得
@@ -62,6 +64,9 @@
 	- [x] ER図の作成
 	- [x] 各テーブルのカラム定義
 - [ ] 開発環境の整備
+
+- [x] ベンダー登録/取り込みトリガーの提供（POST /messages/register/{vendor}）
+	- 現状: Thunderbird からの取得→DB保存までを接続ユースケースで実装しました。戻り値は `RegisterVendorResponseDTO` で型定義します。
 
 ### M6: 通知・進捗配信（WebSocket）
 - [~] 基本的な FastAPI アプリケーションのセットアップ
@@ -84,6 +89,7 @@
 	- [x] `app/services/database/mail_crud.py` で `Mail` モデルの CRUD (Create, Read) 処理を実装
 	- [x] `app/services/database/message_crud.py` で `Message` の Read 処理を実装
 	- [ ] テスト: `mail_crud` の各関数が正しく動作するか単体テストを作成
+	- 現状: 取り込み時の保存はユースケース（`app/usecases/mail.py`）で動作し、`rfc822_message_id` による重複スキップも行います。
 - [ ] **1-4: API エンドポイントの作成**
 ### M9: 配布/運用
 
