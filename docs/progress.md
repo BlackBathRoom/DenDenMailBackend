@@ -37,8 +37,8 @@
 - DoD: サンプルプロファイルから一定件数（例: 100通）を安定して取り込みでき、再実行しても重複挿入が発生しません。
 - [ ] MBOX/mbox-likeの解析と正規化（Message-ID必須、重複排除）
 - [ ] MIMEパーツ抽出（本文text/plain, text/html、添付、CID対応）
-- [ ] DB保存（SUMMARIES）
-	- 現状: SummaryモデルとCRUDはありますが、要約生成との連携は未実装です。
+- [x] DB保存（SUMMARIES）
+	- 現状: ユースケース `create_summary` により text/plain 本文から要約を生成し `Summary` に保存します。既存サマリがある場合は再利用します。
 
 - [~] サマライザIF定義（Sync/Async両対応のポート）
 	- 現状: BaseGraph/SummarizeAgentGraph により同期パスは提供済み。非同期は未対応。
@@ -60,6 +60,8 @@
 ### M5: API（FastAPI）
 
 - [ ] メッセージ一覧/詳細/本文パーツ取得
+- [x] サマリ取得/生成エンドポイント（GET/POST /summary/{message_id}）
+    - 現状: GET は既存サマリを返却（未存在は404）。POST はユースケースを呼び出し、既存があれば再利用、未生成なら text/plain 本文から要約生成→保存→返却します。text/plain が無い場合は 400 を返します。
 - [x] データベース設計
 	- [x] ER図の作成
 	- [x] 各テーブルのカラム定義
@@ -104,14 +106,16 @@
 	- [ ] テスト: `Summary` モデルとリレーションが正しく定義されているか確認
 - [~] **2-2: サマリー生成ロジックの実装**
 	- 仕様: 件名と本文（MIMEパーツから再構成）を入力し、短文要約を生成（ローカルLLM、オフライン）。
-	- 現状: `services/ai/summarize/agent.py` の SummarizeAgentGraph でコア処理は実装・スモーク確認済み。件名+本文の組み立て入力とDB保存フロー連携は未実装。
+	- 現状: `services/ai/summarize/agent.py` の SummarizeAgentGraph をユースケース `create_summary` から利用し、text/plain 本文を入力として要約生成・保存まで動作します。件名の連結や HTML 本文統合は未対応です（今後対応予定）。
 - 進行中: なし
 - ブロック: なし
 
 - [~] **2-3: サマリーデータの永続化処理**
 	- [x] `app/services/database/summary_crud.py` で `Summary` モデルの CRUD 処理を実装
 	- [ ] テスト: `summary_crud` の各関数が正しく動作するか単体テストを作成
-- [ ] **2-4: API エンドポイントの作成**
+	- 現状: ユースケース `create_summary` にて `SummaryDBManager.add_summary` を通じて保存します（既存があれば再利用）。
+- [x] **2-4: API エンドポイントの作成**
+    - 現状: `GET /summary/{message_id}` と `POST /summary/{message_id}` を実装しました。ユースケース例外を 404/400/409 に正規化して応答します。text/plain を持たないメールは 400（PlainTextRequiredError）となります。
 ## 次アクション（提案）
 
 1) M1のモデル定義は完了。インメモリ/一時DBでcreate_allとCRUDスモークテストを実施します。
