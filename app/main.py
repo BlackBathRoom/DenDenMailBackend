@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from sqlmodel import SQLModel
 from starlette.middleware.cors import CORSMiddleware
 
-from routers.messages import router as messages_router
+from routers import messages_router, summary_router
 from services.database.engine import get_engine
 from services.database.seed import seed_core_data
 from utils.logging import get_logger
@@ -40,6 +40,7 @@ def setup_server() -> FastAPI:
 
     routers = [
         ("api", messages_router),
+        ("api", summary_router),
     ]
 
     for prefix, router in routers:

@@ -35,3 +35,7 @@ class ValidationError(UsecaseError):
 
 class ConflictError(UsecaseError):
     """Usecase conflict error (duplicate or state conflict)."""
+
+
+class PlainTextRequiredError(UsecaseError):
+    """The operation requires a text/plain body but it was not found."""
