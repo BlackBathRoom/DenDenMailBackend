@@ -1,7 +1,12 @@
-from sqlalchemy.engine import Engine
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from models.summary import Summary, SummaryCreate, SummaryUpdate
 from services.database.manager.base import BaseDBManager
+
+if TYPE_CHECKING:
+    from sqlalchemy.engine import Engine
 
 
 class SummaryDBManager(BaseDBManager[Summary, SummaryCreate, SummaryUpdate]):
