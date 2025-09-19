@@ -10,6 +10,7 @@ from bs4 import BeautifulSoup
 from bs4.element import Tag
 
 from app_conf import (
+    CANDIDATE_ENCODINGS,
     HTML_SANITIZE_ALLOWED_ATTRS,
     HTML_SANITIZE_ALLOWED_PROTOCOLS,
     HTML_SANITIZE_EXTRA_TAGS,
@@ -260,9 +261,6 @@ def save_messages(messages: list[MessageData], engine: Engine | None = None) -> 
     logger.info("save_mails finished: saved=%d skipped=%d failed=%d", saved, skipped, failed)
 
 
-_CANDIDATE_ENCODINGS = ("utf-8", "cp932", "iso-2022-jp", "euc_jp", "latin-1")
-
-
 def _decode_bytes(data: bytes | None) -> tuple[str | None, str | None]:
     """Decode bytes into str with common Japanese encodings.
 
@@ -270,7 +268,7 @@ def _decode_bytes(data: bytes | None) -> tuple[str | None, str | None]:
     """
     if data is None:
         return None, None
-    for enc in _CANDIDATE_ENCODINGS:
+    for enc in CANDIDATE_ENCODINGS:
         try:
             s = data.decode(enc)
             return s.replace("\r\n", "\n"), enc

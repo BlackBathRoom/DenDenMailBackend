@@ -48,6 +48,8 @@ OV_CONFIG = {"PERFORMANCE_HINT": "LATENCY", "NUM_STREAMS": "1", "CACHE_DIR": ""}
 # HTML sanitize (bleach) configuration
 # - EXTRA_TAGS: bleach の既定タグに union して使用します
 # - ALLOWED_ATTRS / ALLOWED_PROTOCOLS: そのまま使用します
+CANDIDATE_ENCODINGS = ("utf-8", "cp932", "iso-2022-jp", "euc_jp", "latin-1")
+
 HTML_SANITIZE_EXTRA_TAGS = {
     "p",
     "br",
