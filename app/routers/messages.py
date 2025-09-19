@@ -1,14 +1,25 @@
 from typing import Annotated, cast
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
 from app_conf import MailVendor
-from dtos.messages import MessageHeaderDTO, RegisteredFolderDTO, RegisteredVendorDTO, RegisterVendorRequestBody
+from dtos.messages import (
+    MessageBodyDTO,
+    MessageHeaderDTO,
+    RegisteredFolderDTO,
+    RegisteredVendorDTO,
+    RegisterVendorRequestBody,
+)
 from services.database.engine import get_engine
-from services.database.manager import FolderDBManager, MessageDBManager, VendorDBManager
-from usecases.message import connect_vendor, save_messages
+from services.database.manager import (
+    FolderDBManager,
+    MessageDBManager,
+    VendorDBManager,
+)
+from usecases.errors import ConflictError, NotFoundError, ValidationError
+from usecases.message import connect_vendor, get_message_body, get_message_part_content, save_messages
 from utils.logging import get_logger
 
 router = APIRouter(
@@ -38,6 +49,7 @@ def get_messages(
         ],
         offset=offset,
         limit=limit,
+        order_by=["-date_received"],
     )
     return (
         [
@@ -52,6 +64,59 @@ def get_messages(
         if messages
         else []
     )
+
+
+@router.get("/{vendor_id}/{folder_id}/{message_id}", summary="メッセージ本文(サニタイズ済み)と添付一覧を取得")
+def get_message_body_endpoint(
+    vendor_id: int,
+    folder_id: int,
+    message_id: int,
+    engine: Annotated[Engine, Depends(get_engine)],
+) -> MessageBodyDTO:
+    try:
+        body = get_message_body(
+            message_id=message_id,
+            engine=engine,
+            vendor_id=vendor_id,
+            folder_id=folder_id,
+            content_url_builder=lambda part_id: f"/messages/{vendor_id}/{folder_id}/{message_id}/parts/{part_id}",
+        )
+    except NotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from None
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    except ConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
+    return body
+
+
+@router.get(
+    "/{vendor_id}/{folder_id}/{message_id}/parts/{part_id}",
+    summary="メッセージ添付ファイル、インライン画像等の実体取得",
+)
+def get_message_part(
+    vendor_id: int,
+    folder_id: int,
+    message_id: int,
+    part_id: int,
+    engine: Annotated[Engine, Depends(get_engine)],
+) -> Response:
+    try:
+        content, media_type, headers = get_message_part_content(
+            vendor_id=vendor_id,
+            folder_id=folder_id,
+            message_id=message_id,
+            part_id=part_id,
+            engine=engine,
+        )
+    except NotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from None
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from None
+    except ConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from None
+
+    return Response(content=content, media_type=media_type, headers=headers)
 
 
 @router.get("/folders", summary="登録済みフォルダの一覧取得")

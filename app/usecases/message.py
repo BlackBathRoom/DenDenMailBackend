@@ -1,10 +1,21 @@
-"""メールデータをDBへ保存するユースケース."""
+"""メールデータのユースケース (保存・本文再構成など)."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
-from app_conf import MailVendor
+import bleach
+
+from bs4 import BeautifulSoup
+from bs4.element import Tag
+
+from app_conf import (
+    HTML_SANITIZE_ALLOWED_ATTRS,
+    HTML_SANITIZE_ALLOWED_PROTOCOLS,
+    HTML_SANITIZE_EXTRA_TAGS,
+    MailVendor,
+)
+from dtos.messages import AttachmentDTO, MessageBodyDTO
 from models.message import MessageCreate
 from models.message_part import MessagePartCreate
 from services.database.engine import get_engine
@@ -17,9 +28,12 @@ from services.database.manager import (
 from services.database.manager.condition import FieldCondition
 from services.mail.base import BaseClientConfig, BaseMailClient
 from services.mail.thunderbird import ThunderbirdClient
+from usecases.errors import ContentNotAvailableError, MessageNotFoundError, PartNotFoundError
 from utils.logging import get_logger
 
-if TYPE_CHECKING:  # 型参照のみ (実行時依存を避ける)
+if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
+
     from sqlalchemy.engine import Engine
 
     from services.mail.base import MessageData
@@ -244,3 +258,240 @@ def save_messages(messages: list[MessageData], engine: Engine | None = None) -> 
             logger.exception("Failed to save message: %s", m.rfc822_message_id)
 
     logger.info("save_mails finished: saved=%d skipped=%d failed=%d", saved, skipped, failed)
+
+
+_CANDIDATE_ENCODINGS = ("utf-8", "cp932", "iso-2022-jp", "euc_jp", "latin-1")
+
+
+def _decode_bytes(data: bytes | None) -> tuple[str | None, str | None]:
+    """Decode bytes into str with common Japanese encodings.
+
+    Returns (text, encoding). If data is None or decoding fails, returns (None, None).
+    """
+    if data is None:
+        return None, None
+    for enc in _CANDIDATE_ENCODINGS:
+        try:
+            s = data.decode(enc)
+            return s.replace("\r\n", "\n"), enc
+        except UnicodeDecodeError as exc:  # continue trying, but log
+            logger.debug("Decode failed with %s", enc, exc_info=exc)
+            continue
+    # last resort
+    try:
+        s = data.decode("utf-8", errors="replace")
+        return s.replace("\r\n", "\n"), "utf-8?"
+    except UnicodeDecodeError:
+        return None, None
+
+
+def _normalize_cid(cid: str | None) -> str | None:
+    if cid is None:
+        return None
+    c = cid.strip().lower()
+    if c.startswith("<") and c.endswith(">"):
+        c = c[1:-1]
+    return c
+
+
+def _rewrite_cid_with_bs4(html: str, cid_map: dict[str, int], build_url: Callable[[int], str]) -> str:
+    soup = BeautifulSoup(html, "html.parser")
+    for node in soup.find_all("img"):
+        if not isinstance(node, Tag):
+            continue
+        src = node.get("src")
+        if isinstance(src, str) and src.lower().startswith("cid:"):
+            key = _normalize_cid(src[4:])
+            if key and key in cid_map:
+                node["src"] = build_url(cid_map[key])
+    return str(soup)
+
+
+def _sanitize_html(html: str) -> str:
+    allowed_tags = list(set(bleach.sanitizer.ALLOWED_TAGS).union(HTML_SANITIZE_EXTRA_TAGS))
+    allowed_attrs = HTML_SANITIZE_ALLOWED_ATTRS
+    allowed_protocols = list(HTML_SANITIZE_ALLOWED_PROTOCOLS)
+    return bleach.clean(html, tags=allowed_tags, attributes=allowed_attrs, protocols=allowed_protocols, strip=True)
+
+
+def _ensure_message_belongs(engine: Engine, message_id: int, vendor_id: int, folder_id: int) -> None:
+    """Validate that a message belongs to the given vendor and folder.
+
+    Raises MessageNotFoundError if not found or ownership mismatch.
+    """
+    msg = MessageDBManager().read(
+        engine,
+        conditions=[
+            {"operator": "eq", "field": "id", "value": message_id},
+            {"operator": "eq", "field": "vendor_id", "value": vendor_id},
+            {"operator": "eq", "field": "folder_id", "value": folder_id},
+        ],
+        limit=1,
+    )
+    if not msg:
+        err = f"Message not found or not owned by vendor={vendor_id}, folder={folder_id}: id={message_id}"
+        raise MessageNotFoundError(err)
+
+
+class _PartLike(Protocol):
+    """Protocol for message part-like objects used in body reconstruction.
+
+    This captures only the attributes we access to avoid using Any.
+    """
+
+    mime_type: str | None
+    mime_subtype: str | None
+    filename: str | None
+    content_id: str | None
+    content: bytes | None
+    part_order: int | None
+    is_attachment: bool | None
+    size_bytes: int | None
+    id: int | None
+
+
+def _partition_parts(
+    parts: Sequence[_PartLike],
+) -> tuple[list[_PartLike], _PartLike | None, _PartLike | None]:
+    """Partition parts into body vs attachments and pick first plain/html.
+
+    Returns (body_parts, attachments, plain_part, html_part).
+    """
+    attachments: list[_PartLike] = []
+    plain_part: _PartLike | None = None
+    html_part: _PartLike | None = None
+    for p in parts:
+        if p.is_attachment is True:
+            attachments.append(p)
+            continue
+        if plain_part is None and (p.mime_type, p.mime_subtype) == ("text", "plain"):
+            plain_part = p
+        elif html_part is None and (p.mime_type, p.mime_subtype) == ("text", "html"):
+            html_part = p
+    return attachments, plain_part, html_part
+
+
+def get_message_body(
+    message_id: int,
+    content_url_builder: Callable[[int], str],
+    engine: Engine | None = None,
+    *,
+    vendor_id: int | None = None,
+    folder_id: int | None = None,
+) -> MessageBodyDTO:
+    """Build sanitized message body with CID images rewritten to fetchable URLs.
+
+    Args:
+        message_id: Message id.
+        engine: Optional DB engine.
+        content_url_builder: Function to build content URL from part_id.
+        vendor_id: Optional vendor id to validate message ownership.
+        folder_id: Optional folder id to validate message ownership.
+
+    Returns:
+        MessageBodyDTO: Reconstructed body with attachments metadata.
+    """
+    engine = engine or get_engine()
+    # Optional ownership validation when vendor/folder are provided
+    if vendor_id is not None and folder_id is not None:
+        _ensure_message_belongs(engine, message_id, vendor_id, folder_id)
+    part_manager = MessagePartDBManager()
+    parts = (
+        part_manager.read(
+            engine,
+            conditions=[{"operator": "eq", "field": "message_id", "value": message_id}],
+        )
+        or []
+    )
+
+    # Separate body candidates and attachments in one pass, and pick first plain/html
+    attachments, plain_part, html_part = _partition_parts(parts)
+
+    text, text_enc = _decode_bytes(plain_part.content if plain_part else None)
+    raw_html, html_enc = _decode_bytes(html_part.content if html_part else None)
+
+    # Prepare CID map from any part with content_id
+    cid_map: dict[str, int] = {}
+    for p in parts:
+        norm = _normalize_cid(p.content_id)
+        if norm and p.id is not None:
+            cid_map[norm] = p.id
+
+    # Rewrite CID in html then sanitize
+    html_processed: str | None = None
+    if raw_html is not None:
+        builder = content_url_builder
+        temp = _rewrite_cid_with_bs4(raw_html, cid_map, builder)
+        html_processed = _sanitize_html(temp)
+
+    # Build attachments DTOs (exclude inline images from list)
+    dto_attachments: list[AttachmentDTO] = []
+    for p in attachments:
+        if p.id is None:
+            continue
+        dto_attachments.append(
+            AttachmentDTO(
+                part_id=p.id,
+                filename=p.filename,
+                mime_type=p.mime_type or "application",
+                mime_subtype=p.mime_subtype or "octet-stream",
+                size_bytes=p.size_bytes,
+                content_id=p.content_id,
+                is_inline=False,
+                content_url=content_url_builder(p.id),
+            )
+        )
+
+    encoding = html_enc or text_enc
+    return MessageBodyDTO(
+        message_id=message_id,
+        text=text,
+        html=html_processed,
+        encoding=encoding,
+        attachments=dto_attachments,
+    )
+
+
+def get_message_part_content(
+    vendor_id: int,
+    folder_id: int,
+    message_id: int,
+    part_id: int,
+    engine: Engine | None = None,
+) -> tuple[bytes, str, dict[str, str] | None]:
+    """Fetch a message part's raw content with media type and headers.
+
+    Returns (content_bytes, media_type, headers).
+    Raises RuntimeError on not found cases to be translated at router layer.
+    """
+    engine = engine or get_engine()
+    part_manager = MessagePartDBManager()
+    parts = part_manager.read(
+        engine,
+        conditions=[
+            {"operator": "eq", "field": "id", "value": part_id},
+            {"operator": "eq", "field": "message_id", "value": message_id},
+        ],
+        limit=1,
+    )
+    if not parts:
+        msg = "Part not found"
+        raise PartNotFoundError(msg)
+    part = parts[0]
+
+    # Ensure message belongs to vendor/folder
+    _ensure_message_belongs(engine, message_id, vendor_id, folder_id)
+
+    if not part.content:
+        msg = "Content not available"
+        raise ContentNotAvailableError(msg)
+
+    media_type = f"{part.mime_type or 'application'}/{part.mime_subtype or 'octet-stream'}"
+
+    headers: dict[str, str] | None = None
+    disposition = (part.content_disposition or "").lower()
+    if part.is_attachment or disposition.startswith("attachment"):
+        filename = part.filename or "attachment"
+        headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+
+    return part.content, media_type, headers
