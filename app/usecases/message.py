@@ -138,19 +138,8 @@ def save_message(message: MessageData, engine: Engine | None = None) -> None:
         vendor_id=vendor_id,
         folder_id=folder_id,
     )
-    message_manager.create(engine, create_obj)
-
-    # 作成したレコードを再取得して ID を得る
-    created = message_manager.read(
-        engine,
-        conditions=[FieldCondition(operator="eq", field="rfc822_message_id", value=message.rfc822_message_id)],
-        limit=1,
-    )
-    if not created:
-        msg = f"Failed to read back created message: {message.rfc822_message_id}"
-        logger.error(msg)
-        raise RuntimeError(msg)
-    message_id = created[0].id
+    created_message = message_manager.create(engine, create_obj)
+    message_id = created_message.id
     if message_id is None:
         msg = f"Created message had no id: {message.rfc822_message_id}"
         logger.error(msg)
@@ -186,22 +175,10 @@ def save_message(message: MessageData, engine: Engine | None = None) -> None:
                 size_bytes=p.size_bytes,
             )
 
-            part_manager.create(engine, create_part)
-
-            # 直近で作成した Part の ID を再取得してマップ (コスト重めだが簡潔)
-            # インデックス (message_id, is_attachment, part_order) によるフィルタで特定
-            created_parts = part_manager.read(
-                engine,
-                conditions=[
-                    FieldCondition(operator="eq", field="message_id", value=message_id),
-                    FieldCondition(operator="eq", field="part_order", value=p.part_order),
-                ],
-                limit=1,
-            )
-            if created_parts and p.part_order is not None:
-                created_part_id = created_parts[0].id
-                if created_part_id is not None:
-                    order_to_id[p.part_order] = created_part_id
+            created_part = part_manager.create(engine, create_part)
+            # 作成直後のIDをそのままマップ
+            if p.part_order is not None and created_part.id is not None:
+                order_to_id[p.part_order] = created_part.id
 
     logger.info("Saved message: %s", message.rfc822_message_id)
 

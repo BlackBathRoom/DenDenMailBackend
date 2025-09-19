@@ -59,7 +59,7 @@ class BaseDBManager[TBaseModel: SQLModel, TCreate: BaseModel, TUpdate: (BaseMode
             raise
         return converted_obj
 
-    def create(self, engine: Engine, obj: TCreate) -> None:
+    def create(self, engine: Engine, obj: TCreate) -> TBaseModel:
         """新しいレコードを作成する.
 
         Args:
@@ -70,6 +70,9 @@ class BaseDBManager[TBaseModel: SQLModel, TCreate: BaseModel, TUpdate: (BaseMode
             create_obj = self._convert_model(obj)
             session.add(create_obj)
             session.commit()
+
+            session.refresh(create_obj)
+        return create_obj
 
     def read(
         self,
