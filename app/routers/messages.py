@@ -133,7 +133,7 @@ def get_registered_vendors(engine: Annotated[Engine, Depends(get_engine)]) -> li
     return [RegisteredVendorDTO(id=cast("int", v.id), name=v.name) for v in vendors] if vendors else []
 
 
-@router.post("/register", summary="対応ベンダーの登録")
+@router.post("/vendors", summary="対応ベンダーの登録")
 def register_vendor(vendor: RegisterVendorRequestBody, engine: Annotated[Engine, Depends(get_engine)]) -> dict:
     normalized = vendor.vendor.lower().capitalize()
     try:
