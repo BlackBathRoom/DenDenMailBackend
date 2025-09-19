@@ -1,7 +1,12 @@
+from typing import TYPE_CHECKING
+
 from pydantic import BaseModel
-from sqlmodel import Column, Field, ForeignKey, Index, Integer
+from sqlmodel import Column, Field, ForeignKey, Index, Integer, Relationship
 
 from models.common import BaseSQLModel
+
+if TYPE_CHECKING:
+    from models._message_registry import Message
 
 
 class BaseMessagePart(BaseModel):
@@ -46,8 +51,8 @@ class MessagePart(BaseMessagePart, BaseSQLModel, table=True):
         ),
     )
     content_id: str | None = Field(default=None, index=True)
-
-    # note: relationships are defined on demand in Message side if needed.
+    # Relations
+    message: "Message | None" = Relationship(back_populates="parts")
 
 
 class MessagePartCreate(BaseMessagePart):

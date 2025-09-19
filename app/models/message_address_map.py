@@ -1,9 +1,14 @@
 from enum import Enum
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
-from sqlmodel import CheckConstraint, Column, Field, ForeignKey, Integer
+from sqlmodel import CheckConstraint, Column, Field, ForeignKey, Integer, Relationship
 
 from models.common import TimestampedSQLModel
+
+if TYPE_CHECKING:
+    from models._message_registry import Message
+    from models.address import Address
 
 
 class AddressType(str, Enum):
@@ -53,7 +58,8 @@ class MessageAddressMap(BaseMessageAddressMap, TimestampedSQLModel, table=True):
         ),
     )
 
-    # note: relationships can be added in owner models if needed.
+    message: "Message | None" = Relationship(back_populates="address_maps")
+    address: "Address | None" = Relationship(back_populates="message_maps")
 
 
 class MessageAddressMapCreate(BaseMessageAddressMap):

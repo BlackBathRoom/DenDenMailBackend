@@ -1,7 +1,12 @@
+from typing import TYPE_CHECKING
+
 from pydantic import BaseModel
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, Relationship, SQLModel
 
 from models.common import BaseSQLModel
+
+if TYPE_CHECKING:
+    from models.message_tag_map import MessageTagMap
 
 
 class BaseTag(BaseModel):
@@ -14,6 +19,7 @@ class Tag(BaseTag, BaseSQLModel, table=True):
     """タグモデル."""
 
     tag_name: str = Field(unique=True, index=True)
+    message_maps: list["MessageTagMap"] = Relationship(back_populates="tag")
 
 
 class TagCreate(BaseTag):

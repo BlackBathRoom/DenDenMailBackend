@@ -4,12 +4,18 @@
 """
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
-from sqlalchemy.orm import relationship
 from sqlmodel import Column, Field, ForeignKey, Integer, Relationship, SQLModel
 
 from models.common import BaseSQLModel
+
+if TYPE_CHECKING:
+    from models.message_address_map import MessageAddressMap
+    from models.message_part import MessagePart
+    from models.message_tag_map import MessageTagMap
+    from models.message_word import MessageWord
 
 
 class BaseMessage(BaseModel):
@@ -43,6 +49,19 @@ class Message(BaseMessage, BaseSQLModel, table=True):
     folder_id: int | None = Field(
         default=None,
         sa_column=Column(Integer, ForeignKey("folder.id", ondelete="SET NULL"), nullable=True),
+    )
+
+    vendor: "Vendor | None" = Relationship(back_populates="messages")
+    folder: "Folder | None" = Relationship(back_populates="messages")
+
+    # 1:N related collections
+    parts: list["MessagePart"] = Relationship(back_populates="message")
+    words: list["MessageWord"] = Relationship(back_populates="message")
+    tag_maps: list["MessageTagMap"] = Relationship(back_populates="message")
+    address_maps: list["MessageAddressMap"] = Relationship(back_populates="message")
+    summary: "Summary | None" = Relationship(
+        back_populates="message",
+        sa_relationship_kwargs={"uselist": False},
     )
 
 
@@ -115,7 +134,8 @@ class Summary(BaseSummary, BaseSQLModel, table=True):
         ),
     )
 
-    message: list[Message] = Relationship(back_populates="summary")
+    # 1:1 relation back to Message (scalar)
+    message: "Message | None" = Relationship(back_populates="summary")
 
 
 class SummaryCreate(BaseSummary):
@@ -175,8 +195,3 @@ class VendorCreate(BaseVendor):
 
 class VendorRead(BaseVendor, BaseSQLModel):
     pass
-
-
-Message.vendor = relationship("Vendor", back_populates="messages")
-Message.folder = relationship("Folder", back_populates="messages")
-Message.summary = relationship("Summary", back_populates="message")

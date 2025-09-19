@@ -1,7 +1,13 @@
+from typing import TYPE_CHECKING
+
 from pydantic import BaseModel, EmailStr
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, Relationship, SQLModel
 
 from models.common import BaseSQLModel
+
+if TYPE_CHECKING:
+    from models.message_address_map import MessageAddressMap
+    from models.priority_person import PriorityPerson
 
 
 class BaseAddress(BaseModel):
@@ -26,6 +32,11 @@ class Address(BaseAddress, BaseSQLModel, table=True):
     """
 
     email_address: str = Field(index=True, unique=True)
+    message_maps: list["MessageAddressMap"] = Relationship(back_populates="address")
+    priority: "PriorityPerson | None" = Relationship(
+        back_populates="address",
+        sa_relationship_kwargs={"uselist": False},
+    )
 
 
 class AddressCreate(BaseAddress):

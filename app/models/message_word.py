@@ -1,7 +1,12 @@
+from typing import TYPE_CHECKING
+
 from pydantic import BaseModel
-from sqlmodel import Column, Field, ForeignKey, Integer
+from sqlmodel import Column, Field, ForeignKey, Integer, Relationship
 
 from models.common import TimestampedSQLModel
+
+if TYPE_CHECKING:
+    from models._message_registry import Message
 
 
 class BaseMessageWord(BaseModel):
@@ -30,6 +35,7 @@ class MessageWord(BaseMessageWord, TimestampedSQLModel, table=True):
     tf: int = Field(ge=1)
 
     # 複合主キーで一意性を担保
+    message: "Message | None" = Relationship(back_populates="words")
 
 
 class MessageWordCreate(BaseMessageWord):

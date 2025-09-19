@@ -1,7 +1,12 @@
+from typing import TYPE_CHECKING
+
 from pydantic import BaseModel
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, Relationship, SQLModel
 
 from models.common import BaseSQLModel
+
+if TYPE_CHECKING:
+    from models.address import Address
 
 
 class BasePriorityPerson(BaseModel):
@@ -16,6 +21,7 @@ class PriorityPerson(BasePriorityPerson, BaseSQLModel, table=True):
 
     address_id: int = Field(foreign_key="address.id", unique=True, index=True)
     priority: int = Field(ge=1, le=100)
+    address: "Address | None" = Relationship(back_populates="priority")
 
 
 class PriorityPersonCreate(BasePriorityPerson):

@@ -1,7 +1,13 @@
+from typing import TYPE_CHECKING
+
 from pydantic import BaseModel
-from sqlmodel import Column, Field, ForeignKey, Integer
+from sqlmodel import Column, Field, ForeignKey, Integer, Relationship
 
 from models.common import TimestampedSQLModel
+
+if TYPE_CHECKING:
+    from models._message_registry import Message
+    from models.tag import Tag
 
 
 class BaseMessageTagMap(BaseModel):
@@ -35,8 +41,8 @@ class MessageTagMap(BaseMessageTagMap, TimestampedSQLModel, table=True):
     )
 
     # 複合主キーで一意性を担保
-
-    # note: relationships are defined on demand in owner models if needed.
+    message: "Message | None" = Relationship(back_populates="tag_maps")
+    tag: "Tag | None" = Relationship(back_populates="message_maps")
 
 
 class MessageTagMapCreate(BaseMessageTagMap):
