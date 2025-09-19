@@ -31,9 +31,9 @@
 - [~] MBOX/mbox-likeの解析と正規化（Message-ID必須、重複排除）
 	- 現状: `ThunderbirdClient` で mbox 解析と Message-ID 取得は実装済みです。取り込み時に `rfc822_message_id` による事前スキップで重複挿入を回避します。DBでの一意制約による重複排除は未対応です。
 - [~] MIMEパーツ抽出（本文text/plain, text/html、添付、CID対応）
-	- 現状: 取得時に MIME パーツへ分割して返却します。ネストはフラットにし `part_order` と `parent_part_order` で親子復元可能。添付/CIDの保存は未対応です。
+	- 現状: 取得時に MIME パーツへ分割して返却します。ネストはフラットにし `part_order` と `parent_part_order` で親子復元可能。添付/CIDの保存は未対応です。本文再構成では BeautifulSoup + bleach による CID 置換・HTMLサニタイズを実装済みで、`/messages/{vendor_id}/{folder_id}/{message_id}` から取得できます（所有チェック付き）。
 - [~] DB保存（MESSAGES, MESSAGE_PARTS, ADDRESSES, MESSAGE_ADDRESS_MAP）
-	- 現状: `app/usecases/mail.py` の `save_mail`/`save_mails` で MESSAGES と MESSAGE_PARTS の保存を実装しました。パーツの親子関係は order から解決して `parent_part_id` を設定します。ADDRESSES と MESSAGE_ADDRESS_MAP は未実装です。
+	- 現状: `app/usecases/message.py` の `save_message`/`save_messages` で MESSAGES と MESSAGE_PARTS の保存を実装しました。パーツの親子関係は order から解決して `parent_part_id` を設定します。ADDRESSES と MESSAGE_ADDRESS_MAP は未実装です。補足: 所有チェックとユースケース例外を導入し、APIレイヤでは 404/400/409 に正規化して応答します。
 - DoD: サンプルプロファイルから一定件数（例: 100通）を安定して取り込みでき、再実行しても重複挿入が発生しません。
 - [ ] MBOX/mbox-likeの解析と正規化（Message-ID必須、重複排除）
 - [ ] MIMEパーツ抽出（本文text/plain, text/html、添付、CID対応）
@@ -89,8 +89,9 @@
 	- [x] `app/services/database/mail_crud.py` で `Mail` モデルの CRUD (Create, Read) 処理を実装
 	- [x] `app/services/database/message_crud.py` で `Message` の Read 処理を実装
 	- [ ] テスト: `mail_crud` の各関数が正しく動作するか単体テストを作成
-	- 現状: 取り込み時の保存はユースケース（`app/usecases/mail.py`）で動作し、`rfc822_message_id` による重複スキップも行います。
+	- 現状: 取り込み時の保存はユースケース（`app/usecases/message.py`）で動作し、`rfc822_message_id` による重複スキップも行います。本文取得時は vendor/folder の所有チェックを追加しました。
 - [ ] **1-4: API エンドポイントの作成**
+	- 進行: 本文・パーツコンテンツの GET エンドポイントを実装し、ユースケース例外に応じて 404/400/409 を返却します。
 ### M9: 配布/運用
 
 - [ ] 起動スクリプト/README更新（uv基盤）
