@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from dtos.rules_dto import (
+from dtos.rules import (
     AddressRuleCreateDTO,
     AddressRuleDTO,
     AddressRuleUpdateDTO,
