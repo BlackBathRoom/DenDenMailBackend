@@ -44,3 +44,38 @@ DB_PATH = BASE_DIR / "database" / "db.sqlite3"
 
 # OpenVINO
 OV_CONFIG = {"PERFORMANCE_HINT": "LATENCY", "NUM_STREAMS": "1", "CACHE_DIR": ""}
+
+# HTML sanitize (bleach) configuration
+# - EXTRA_TAGS: bleach の既定タグに union して使用します
+# - ALLOWED_ATTRS / ALLOWED_PROTOCOLS: そのまま使用します
+HTML_SANITIZE_EXTRA_TAGS = {
+    "p",
+    "br",
+    "img",
+    "table",
+    "thead",
+    "tbody",
+    "tfoot",
+    "tr",
+    "td",
+    "th",
+    "span",
+    "div",
+    "pre",
+    "code",
+    "ul",
+    "ol",
+    "li",
+    "blockquote",
+    "hr",
+}
+
+HTML_SANITIZE_ALLOWED_ATTRS = {
+    "a": ["href", "title"],
+    "img": ["src", "alt", "title", "width", "height"],
+    "td": ["colspan", "rowspan"],
+    "th": ["colspan", "rowspan"],
+    "table": ["border"],
+}
+
+HTML_SANITIZE_ALLOWED_PROTOCOLS = ("http", "https", "mailto")
