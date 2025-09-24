@@ -8,6 +8,7 @@ import bleach
 
 from bs4 import BeautifulSoup
 from bs4.element import Tag
+from sqlalchemy.exc import SQLAlchemyError
 
 from app_conf import (
     CANDIDATE_ENCODINGS,
@@ -17,11 +18,15 @@ from app_conf import (
     MailVendor,
 )
 from dtos.messages import AttachmentDTO, MessageBodyDTO
+from models.address import AddressCreate, AddressUpdate
 from models.message import MessageCreate
+from models.message_address_map import AddressType, MessageAddressMapCreate
 from models.message_part import MessagePartCreate
 from services.database.engine import get_engine
 from services.database.manager import (
+    AddressDBManager,
     FolderDBManager,
+    MessageAddressMapDBManager,
     MessageDBManager,
     MessagePartDBManager,
     VendorDBManager,
@@ -40,8 +45,7 @@ if TYPE_CHECKING:
     from services.mail.base import MessageData
 
 # 具体的な保存は MessageDBManager を中心に、必要に応じて
-# MessagePartDBManager / Address 系 Manager を利用する想定。
-# 実装は後続で追加。
+# MessagePartDBManager / Address 系 Manager を利用します。
 
 
 logger = get_logger(__name__)
@@ -94,6 +98,105 @@ def _ensure_vendor(engine: Engine, vendor: MailVendor) -> int:
         logger.error(msg)
         raise RuntimeError(msg)
     return vendor_id
+
+
+def _normalize_email(email: str) -> str:
+    return email.strip().lower()
+
+
+class _AddressLike(Protocol):
+    """Protocol for address-like entries from MessageData.
+
+    This captures only the attributes used by address-saving logic.
+    """
+
+    email_address: object
+    display_name: str | None
+
+
+def _find_or_create_address(engine: Engine, email: str, display_name: str | None) -> int | None:
+    """Find Address by email or create a new one. Optionally fill display_name.
+
+    Returns address_id or None when failed.
+    """
+    addr_manager = AddressDBManager()
+    # 既存検索
+    existing = addr_manager.read(
+        engine,
+        conditions=[FieldCondition(operator="eq", field="email_address", value=email)],
+        limit=1,
+    )
+    if existing is not None:
+        addr = existing[0]
+        addr_id = addr.id
+        # display_name の補完(既存が None の場合のみ)
+        if addr_id is not None and addr.display_name is None and display_name:
+            try:
+                addr_manager.update(
+                    engine,
+                    AddressUpdate(display_name=display_name),
+                    conditions=[FieldCondition(operator="eq", field="id", value=addr_id)],
+                )
+            except SQLAlchemyError:
+                logger.debug("Failed to update display_name for %s", email, exc_info=True)
+        return addr_id
+
+    # 新規作成
+    created = addr_manager.create(engine, AddressCreate(email_address=email, display_name=display_name))
+    return created.id
+
+
+def _save_address_map(engine: Engine, message_id: int, address_id: int, addr_type: AddressType) -> None:
+    """Create MessageAddressMap if not exists (best-effort)."""
+    map_manager = MessageAddressMapDBManager()
+    try:
+        map_manager.create(
+            engine,
+            MessageAddressMapCreate(message_id=message_id, address_id=address_id, address_type=addr_type),
+        )
+    except SQLAlchemyError:
+        # 複合PKの重複などは基本発生しない想定だが、念のためスキップ
+        logger.debug(
+            "Skip creating MessageAddressMap (maybe duplicate): msg=%s addr=%s type=%s",
+            message_id,
+            address_id,
+            addr_type.value,
+            exc_info=True,
+        )
+
+
+def _process_address_list(
+    engine: Engine,
+    message_id: int,
+    items: Sequence[_AddressLike],
+    addr_type: AddressType,
+) -> None:
+    """Normalize, deduplicate, and persist one address-type list."""
+    seen: set[str] = set()
+    for it in items or []:
+        try:
+            # EmailStr を文字列化し、正規化
+            email = _normalize_email(str(it.email_address))
+            if not email or email in seen:
+                continue
+            seen.add(email)
+
+            addr_id = _find_or_create_address(engine, email, it.display_name or None)
+            if addr_id is None:
+                logger.warning("Address id missing after create/find: %s", email)
+                continue
+
+            _save_address_map(engine, message_id, addr_id, addr_type)
+        except (AttributeError, TypeError, ValueError):
+            logger.debug("Skip invalid address entry", exc_info=True)
+
+
+def save_addresses_for_message(engine: Engine, message_id: int, m: MessageData) -> None:
+    """Save all addresses (from/to/cc/bcc) for a message."""
+    _process_address_list(engine, message_id, getattr(m, "from_addrs", []) or [], AddressType.FROM)
+    _process_address_list(engine, message_id, getattr(m, "to_addrs", []) or [], AddressType.TO)
+    _process_address_list(engine, message_id, getattr(m, "cc_addrs", []) or [], AddressType.CC)
+    _process_address_list(engine, message_id, getattr(m, "bcc_addrs", []) or [], AddressType.BCC)
 
 
 def save_message(message: MessageData, engine: Engine | None = None) -> None:
@@ -179,6 +282,12 @@ def save_message(message: MessageData, engine: Engine | None = None) -> None:
             # 作成直後のIDをそのままマップ
             if p.part_order is not None and created_part.id is not None:
                 order_to_id[p.part_order] = created_part.id
+
+    # アドレスを保存
+    try:
+        save_addresses_for_message(engine, message_id, message)
+    except SQLAlchemyError:
+        logger.exception("Failed to save addresses for message: %s", message.rfc822_message_id)
 
     logger.info("Saved message: %s", message.rfc822_message_id)
 

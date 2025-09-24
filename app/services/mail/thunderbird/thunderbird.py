@@ -6,11 +6,19 @@ from datetime import datetime
 from email.errors import MessageError
 from email.header import decode_header
 from email.message import Message
-from email.utils import parseaddr, parsedate_to_datetime
+from email.utils import getaddresses, parseaddr, parsedate_to_datetime
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from app_conf import MailVendor
-from services.mail.base import BaseClientConfig, BaseMailClient, MessageData, MessagePartData
+from services.mail.base import (
+    BaseClientConfig,
+    BaseMailClient,
+    MessageAddressData,
+    MessageData,
+    MessagePartData,
+)
 from services.mail.thunderbird.thunderbird_path import ThunderbirdPath
 from utils.logging import get_logger
 
@@ -99,6 +107,9 @@ class ThunderbirdClient(BaseMailClient[ThunderbirdConfig]):
 
             parts = self._extract_parts(message)
 
+            # アドレス抽出
+            addrs = self._parse_addresses(message)
+
             # MailDataオブジェクト作成
             mail_data = MessageData(
                 rfc822_message_id=rfc822_message_id,
@@ -115,6 +126,10 @@ class ThunderbirdClient(BaseMailClient[ThunderbirdConfig]):
                 folder_id=None,  # db登録時に設定
                 mail_vendor=MailVendor.THUNDERBIRD,
                 parts=parts,
+                from_addrs=addrs.get("from", []),
+                to_addrs=addrs.get("to", []),
+                cc_addrs=addrs.get("cc", []),
+                bcc_addrs=addrs.get("bcc", []),
             )
 
         except (MessageError, UnicodeDecodeError, ValueError) as e:
@@ -147,6 +162,45 @@ class ThunderbirdClient(BaseMailClient[ThunderbirdConfig]):
             # パースに失敗した場合はデフォルト値を返す
             return "送信者不明", "unknown@example.com"
         return name or "送信者不明", address
+
+    def _parse_addresses(self, message: Message) -> dict[str, list[MessageAddressData]]:
+        """ヘッダから From/To/Cc/Bcc のアドレスを抽出して返す.
+
+        Returns:
+            dict[str, list[MessageAddressData]]: keys are 'from', 'to', 'cc', 'bcc'.
+        """
+
+        def norm(addr: tuple[str, str]) -> MessageAddressData | None:
+            name, email = addr
+            email = (email or "").strip().lower()
+            if not email or "@" not in email:
+                return None
+            name = (name or "").strip()
+            try:
+                return MessageAddressData(email_address=email, display_name=name or None)
+            except ValidationError as ve:
+                logger.debug("Invalid email address skipped: raw=%r error=%s", addr, ve)
+                return None
+
+        result: dict[str, list[MessageAddressData]] = {"from": [], "to": [], "cc": [], "bcc": []}
+        # From は単数または複数あり得る
+        from_list = getaddresses(message.get_all("From", []))
+        to_list = getaddresses(message.get_all("To", []))
+        cc_list = getaddresses(message.get_all("Cc", []))
+        bcc_list = getaddresses(message.get_all("Bcc", []))
+
+        for key, lst in (("from", from_list), ("to", to_list), ("cc", cc_list), ("bcc", bcc_list)):
+            seen: set[str] = set()
+            for raw in lst:
+                item = norm(raw)
+                if item is None:
+                    continue
+                if item.email_address in seen:
+                    continue
+                seen.add(item.email_address)
+                result[key].append(item)
+
+        return result
 
     def _decode_header(self, header: str) -> str:
         """メールヘッダーをデコード.
