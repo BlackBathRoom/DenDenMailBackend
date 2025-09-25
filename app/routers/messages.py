@@ -161,12 +161,12 @@ def register_vendor(vendor: RegisterVendorRequestBody, engine: Annotated[Engine,
     return Response(content=f"Vendor {v.value} registered successfully", status_code=201)
 
 
-@router.get("/addresses/")
+@router.get("/addresses/", summary="登録済みアドレスの一覧取得")
 def get_addresses(engine: Annotated[Engine, Depends(get_engine)]) -> list[AddressDTO]:
     return get_list_obj(AddressDBManager(), engine, AddressDTO)
 
 
-@router.patch("/addresses/{address_id}")
+@router.patch("/addresses/{address_id}", summary="登録済みアドレスの表示名更新")
 def update_address_name(
     address_id: int,
     body: UpdateAddressRequestBody,
