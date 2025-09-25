@@ -1,4 +1,4 @@
-from typing import Annotated, cast
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.engine import Engine
@@ -22,6 +22,7 @@ from services.database.manager import (
     MessageDBManager,
     VendorDBManager,
 )
+from usecases import get_list_obj, update_by_id
 from usecases.errors import ConflictError, NotFoundError, ValidationError
 from usecases.message import connect_vendor, get_message_body, get_message_part_content, save_messages
 from utils.logging import get_logger
@@ -125,16 +126,12 @@ def get_message_part(
 
 @router.get("/folders", summary="登録済みフォルダの一覧取得")
 def get_registered_folders(engine: Annotated[Engine, Depends(get_engine)]) -> list[RegisteredFolderDTO]:
-    folder_manager = FolderDBManager()
-    folders = folder_manager.read(engine)
-    return [RegisteredFolderDTO(id=cast("int", f.id), name=f.name) for f in folders] if folders else []
+    return get_list_obj(FolderDBManager(), engine, RegisteredFolderDTO)
 
 
 @router.get("/vendors", summary="登録済みベンダーの一覧取得")
 def get_registered_vendors(engine: Annotated[Engine, Depends(get_engine)]) -> list[RegisteredVendorDTO]:
-    vendor_manager = VendorDBManager()
-    vendors = vendor_manager.read(engine)
-    return [RegisteredVendorDTO(id=cast("int", v.id), name=v.name) for v in vendors] if vendors else []
+    return get_list_obj(VendorDBManager(), engine, RegisteredVendorDTO)
 
 
 @router.post("/vendors", summary="対応ベンダーの登録")
@@ -166,18 +163,7 @@ def register_vendor(vendor: RegisterVendorRequestBody, engine: Annotated[Engine,
 
 @router.get("/addresses/")
 def get_addresses(engine: Annotated[Engine, Depends(get_engine)]) -> list[AddressDTO]:
-    manager = AddressDBManager()
-    addresses = manager.read(engine)
-    return (
-        [
-            AddressDTO(
-                address_id=cast("int", addr.id), display_name=addr.display_name, email_address=addr.email_address
-            )
-            for addr in addresses
-        ]
-        if addresses is not None
-        else []
-    )
+    return get_list_obj(AddressDBManager(), engine, AddressDTO)
 
 
 @router.patch("/addresses/{address_id}")
@@ -186,14 +172,9 @@ def update_address_name(
     body: UpdateAddressRequestBody,
     engine: Annotated[Engine, Depends(get_engine)],
 ) -> Response:
-    manager = AddressDBManager()
-    try:
-        manager.update_by_id(
-            engine,
-            address_id,
-            AddressUpdate(display_name=body.display_name),
-        )
-    except SQLAlchemyError as exc:
-        logger.exception("Failed to update address %d", address_id)
-        raise HTTPException(status_code=500, detail="Failed to update address") from exc
-    return Response(content="Address updated successfully", status_code=200)
+    return update_by_id(
+        AddressDBManager(),
+        engine,
+        address_id,
+        AddressUpdate(display_name=body.display_name),
+    )

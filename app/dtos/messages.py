@@ -2,6 +2,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from .shared.base import BaseDTO
+
 
 class MessageHeaderDTO(BaseModel):
     """メッセージヘッダDTO.
@@ -73,7 +75,7 @@ class RegisterVendorRequestBody(BaseModel):
     vendor: str
 
 
-class RegisteredFolderDTO(BaseModel):
+class RegisteredFolderDTO(BaseDTO):
     """登録済みフォルダDTO.
 
     Args:
@@ -81,11 +83,10 @@ class RegisteredFolderDTO(BaseModel):
         name (str): フォルダ名.
     """
 
-    id: int
     name: str
 
 
-class RegisteredVendorDTO(BaseModel):
+class RegisteredVendorDTO(BaseDTO):
     """登録済みベンダーDTO.
 
     Args:
@@ -93,11 +94,10 @@ class RegisteredVendorDTO(BaseModel):
         name (str): ベンダー名.
     """
 
-    id: int
     name: str
 
 
-class AddressDTO(BaseModel):
+class AddressDTO(BaseDTO):
     """メールアドレスDTO.
 
     Attributes:
@@ -106,7 +106,6 @@ class AddressDTO(BaseModel):
         email_address (str): メールアドレス.
     """
 
-    address_id: int
     display_name: str | None = None
     email_address: str
 

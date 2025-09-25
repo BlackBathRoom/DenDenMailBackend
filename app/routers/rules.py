@@ -16,8 +16,7 @@ from models.priority_person import PriorityPersonCreate, PriorityPersonUpdate
 from models.priority_word import PriorityWordCreate, PriorityWordUpdate
 from services.database.engine import get_engine
 from services.database.manager import AddressDBManager, PriorityPersonDBManager, PriorityWordDBManager
-from usecases.get_list_obj import get_list_obj
-from usecases.update_by_id import update_by_id
+from usecases import get_list_obj, update_by_id
 from utils.logging import get_logger
 
 logger = get_logger(__name__)
