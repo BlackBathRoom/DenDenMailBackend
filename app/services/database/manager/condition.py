@@ -4,11 +4,12 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Literal, TypedDict, cast
 
+from sqlalchemy import false, not_, true
+
 if TYPE_CHECKING:
     from sqlalchemy.sql.elements import ColumnElement
     from sqlmodel import SQLModel
 
-from sqlalchemy import false, not_, true
 
 # Define operators for database queries
 type Operator = Literal[

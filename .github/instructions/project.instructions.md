@@ -21,5 +21,7 @@ applyTo: '**'
 
 1. 実装する機能、ものを明確にする。
 2. 実装を行う。
+  - [pythonコーディング規則](./python_coding.instructions.md)
 3. [進捗状況](./../../docs/progress.md)を更新する。
   - 実装の完了は開発者に確認をとること。
+  - [ドキュメント実装規則](./documentation.instructions.md)

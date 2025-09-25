@@ -7,13 +7,13 @@ from typing import TYPE_CHECKING, overload
 from pydantic import BaseModel, ValidationError
 from sqlmodel import Session, SQLModel, select
 
-from services.database.condition import resolve_condition
+from services.database.manager.condition import resolve_condition
 from utils.logging import get_logger
 
 if TYPE_CHECKING:
     from sqlalchemy import Engine
 
-    from services.database.condition import Condition
+    from services.database.manager.condition import Condition
 
 logger = get_logger(__name__)
 
@@ -59,7 +59,7 @@ class BaseDBManager[TBaseModel: SQLModel, TCreate: BaseModel, TUpdate: (BaseMode
             raise
         return converted_obj
 
-    def create(self, engine: Engine, obj: TCreate) -> None:
+    def create(self, engine: Engine, obj: TCreate) -> TBaseModel:
         """新しいレコードを作成する.
 
         Args:
@@ -70,6 +70,9 @@ class BaseDBManager[TBaseModel: SQLModel, TCreate: BaseModel, TUpdate: (BaseMode
             create_obj = self._convert_model(obj)
             session.add(create_obj)
             session.commit()
+
+            session.refresh(create_obj)
+        return create_obj
 
     def read(
         self,
@@ -218,3 +221,15 @@ class BaseDBManager[TBaseModel: SQLModel, TCreate: BaseModel, TUpdate: (BaseMode
 
             session.delete(db_obj)
             session.commit()
+
+    def exists(self, engine: Engine, obj_id: int) -> bool:
+        """指定したIDのレコードが存在するか確認する.
+
+        Args:
+            engine (Engine): SQLAlchemyエンジン.
+            obj_id (int): 確認するオブジェクトのID.
+
+        Returns:
+            bool: レコードが存在する場合はTrue、存在しない場合はFalse.
+        """
+        return self.read_by_id(engine, obj_id) is not None
