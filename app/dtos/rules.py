@@ -14,7 +14,7 @@ class _BasePriorityDTO(BaseDTO, _Priority):
 
 
 class DictionaryDTO(_BasePriorityDTO):
-    keyword: str
+    word: str
 
 
 class AddressDTO(_BasePriorityDTO):
@@ -22,9 +22,17 @@ class AddressDTO(_BasePriorityDTO):
     name: str | None = None
 
 
-class RegisterDictionaryRequestDTO(_Priority):
-    keyword: str
+class UpdateDictionaryRequestDTO(_Priority):
+    pass
 
 
-class RegisterAddressRequestDTO(_Priority):
-    address: str
+class UpdateAddressRequestDTO(_Priority):
+    name: str
+
+
+class CreateDictionaryRequestDTO(_Priority):
+    word: str
+
+
+class CreateAddressRequestDTO(_Priority):
+    address_id: int
