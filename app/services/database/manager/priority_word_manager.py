@@ -1,5 +1,7 @@
 """PriorityWord テーブル用DBマネージャ."""
 
+from __future__ import annotations
+
 from models.priority_word import PriorityWord, PriorityWordCreate, PriorityWordUpdate
 from services.database.manager.base import BaseDBManager
 

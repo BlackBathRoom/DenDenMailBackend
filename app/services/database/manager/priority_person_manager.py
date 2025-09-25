@@ -1,5 +1,7 @@
 """PriorityPerson テーブル用DBマネージャ."""
 
+from __future__ import annotations
+
 from models.priority_person import PriorityPerson, PriorityPersonCreate, PriorityPersonUpdate
 from services.database.manager.base import BaseDBManager
 

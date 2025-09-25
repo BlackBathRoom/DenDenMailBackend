@@ -221,3 +221,15 @@ class BaseDBManager[TBaseModel: SQLModel, TCreate: BaseModel, TUpdate: (BaseMode
 
             session.delete(db_obj)
             session.commit()
+
+    def exists(self, engine: Engine, obj_id: int) -> bool:
+        """指定したIDのレコードが存在するか確認する.
+
+        Args:
+            engine (Engine): SQLAlchemyエンジン.
+            obj_id (int): 確認するオブジェクトのID.
+
+        Returns:
+            bool: レコードが存在する場合はTrue、存在しない場合はFalse.
+        """
+        return self.read_by_id(engine, obj_id) is not None

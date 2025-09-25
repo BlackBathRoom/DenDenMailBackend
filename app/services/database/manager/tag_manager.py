@@ -1,5 +1,7 @@
 """Tag テーブル用DBマネージャ."""
 
+from __future__ import annotations
+
 from models.tag import Tag, TagCreate, TagUpdate
 from services.database.manager.base import BaseDBManager
 

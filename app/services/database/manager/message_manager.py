@@ -1,5 +1,7 @@
 """Message テーブル用DBマネージャ."""
 
+from __future__ import annotations
+
 from models.message import Message, MessageCreate, MessageUpdate
 from services.database.manager.base import BaseDBManager
 

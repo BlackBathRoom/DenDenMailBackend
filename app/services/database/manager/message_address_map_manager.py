@@ -1,5 +1,7 @@
 """MessageAddressMap テーブル用DBマネージャ (更新なし)."""
 
+from __future__ import annotations
+
 from models.message_address_map import MessageAddressMap, MessageAddressMapCreate
 from services.database.manager.base import BaseDBManager
 

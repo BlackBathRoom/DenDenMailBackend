@@ -1,5 +1,7 @@
 """MessagePart テーブル用DBマネージャ (Update モデルなし)."""
 
+from __future__ import annotations
+
 from models.message_part import MessagePart, MessagePartCreate
 from services.database.manager.base import BaseDBManager
 
