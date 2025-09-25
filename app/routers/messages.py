@@ -6,14 +6,18 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app_conf import MailVendor
 from dtos.messages import (
+    AddressDTO,
     MessageBodyDTO,
     MessageHeaderDTO,
     RegisteredFolderDTO,
     RegisteredVendorDTO,
     RegisterVendorRequestBody,
+    UpdateAddressRequestBody,
 )
+from models.address import AddressUpdate
 from services.database.engine import get_engine
 from services.database.manager import (
+    AddressDBManager,
     FolderDBManager,
     MessageDBManager,
     VendorDBManager,
@@ -134,7 +138,7 @@ def get_registered_vendors(engine: Annotated[Engine, Depends(get_engine)]) -> li
 
 
 @router.post("/vendors", summary="対応ベンダーの登録")
-def register_vendor(vendor: RegisterVendorRequestBody, engine: Annotated[Engine, Depends(get_engine)]) -> dict:
+def register_vendor(vendor: RegisterVendorRequestBody, engine: Annotated[Engine, Depends(get_engine)]) -> Response:
     normalized = vendor.vendor.lower().capitalize()
     try:
         v = MailVendor(normalized)
@@ -157,4 +161,39 @@ def register_vendor(vendor: RegisterVendorRequestBody, engine: Annotated[Engine,
         # 登録自体は成功しているためHTTPは成功を返し、詳細はログへ
         logger.exception("Failed to save mails for vendor %s", v.value)
 
-    return {"message": f"Registered vender: {normalized}", "fetched": len(mails)}
+    return Response(content=f"Vendor {v.value} registered successfully", status_code=201)
+
+
+@router.get("/addresses/")
+def get_addresses(engine: Annotated[Engine, Depends(get_engine)]) -> list[AddressDTO]:
+    manager = AddressDBManager()
+    addresses = manager.read(engine)
+    return (
+        [
+            AddressDTO(
+                address_id=cast("int", addr.id), display_name=addr.display_name, email_address=addr.email_address
+            )
+            for addr in addresses
+        ]
+        if addresses is not None
+        else []
+    )
+
+
+@router.patch("/addresses/{address_id}")
+def update_address_name(
+    address_id: int,
+    body: UpdateAddressRequestBody,
+    engine: Annotated[Engine, Depends(get_engine)],
+) -> Response:
+    manager = AddressDBManager()
+    try:
+        manager.update_by_id(
+            engine,
+            address_id,
+            AddressUpdate(display_name=body.display_name),
+        )
+    except SQLAlchemyError as exc:
+        logger.exception("Failed to update address %d", address_id)
+        raise HTTPException(status_code=500, detail="Failed to update address") from exc
+    return Response(content="Address updated successfully", status_code=200)

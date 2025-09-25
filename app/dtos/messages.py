@@ -95,3 +95,27 @@ class RegisteredVendorDTO(BaseModel):
 
     id: int
     name: str
+
+
+class AddressDTO(BaseModel):
+    """メールアドレスDTO.
+
+    Attributes:
+        id (int): メールアドレスID.
+        display_name (str | None): 表示名.
+        email_address (str): メールアドレス.
+    """
+
+    address_id: int
+    display_name: str | None = None
+    email_address: str
+
+
+class UpdateAddressRequestBody(BaseModel):
+    """メールアドレス更新リクエストボディDTO.
+
+    Attributes:
+        display_name (str | None): 表示名.
+    """
+
+    display_name: str | None = None
