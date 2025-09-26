@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.engine import Engine
@@ -59,7 +59,7 @@ def get_messages(
     return (
         [
             MessageHeaderDTO(
-                message_id=str(m.id),
+                id=cast("int", m.id),
                 subject=m.subject,
                 date_received=m.date_received,
                 is_read=m.is_read,

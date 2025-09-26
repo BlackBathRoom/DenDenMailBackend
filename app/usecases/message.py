@@ -515,7 +515,7 @@ def get_message_body(
             continue
         dto_attachments.append(
             AttachmentDTO(
-                part_id=p.id,
+                id=p.id,
                 filename=p.filename,
                 mime_type=p.mime_type or "application",
                 mime_subtype=p.mime_subtype or "octet-stream",
@@ -528,7 +528,7 @@ def get_message_body(
 
     encoding = html_enc or text_enc
     return MessageBodyDTO(
-        message_id=message_id,
+        id=message_id,
         text=text,
         html=html_processed,
         encoding=encoding,
