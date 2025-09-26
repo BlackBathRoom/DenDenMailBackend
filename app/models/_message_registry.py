@@ -40,6 +40,8 @@ class BaseMessage(BaseModel):
     is_forwarded: bool = False
     vendor_id: int
     folder_id: int | None = None
+    # 代表送信者(Address)へのFK (from アドレスの先頭を採用 / 無ければ None)
+    sender_address_id: int | None = None
 
 
 class Message(BaseMessage, BaseSQLModel, table=True):
@@ -52,6 +54,10 @@ class Message(BaseMessage, BaseSQLModel, table=True):
     folder_id: int | None = Field(
         default=None,
         sa_column=Column(Integer, ForeignKey("folder.id", ondelete="SET NULL"), nullable=True),
+    )
+    sender_address_id: int | None = Field(
+        default=None,
+        sa_column=Column(Integer, ForeignKey("address.id", ondelete="SET NULL"), nullable=True, index=True),
     )
 
     vendor: "Vendor" = Relationship(back_populates="messages")

@@ -39,12 +39,12 @@ class MessageData(BaseMessage):
     メールクライアントから取得した情報も含む.
 
     Attributes:
-    rfc822_message_id (str): RFC 822 Message-ID.
+        rfc822_message_id (str): RFC 822 Message-ID.
         subject (str): 件名.
-    date_received (datetime): 受信日時.
-    date_sent (datetime | None): 送信日時(ヘッダーのDate).
+        date_received (datetime): 受信日時.
+        date_sent (datetime | None): 送信日時(ヘッダーのDate).
         is_read (bool): 既読フラグ.
-    vendor (str): メールクライアント名.
+        vendor (str): メールクライアント名.
     """
 
     # dbのidを検索し含めるのは冗長なのでenumをフィールドで保持、判断

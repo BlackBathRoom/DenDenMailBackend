@@ -199,6 +199,25 @@ def save_addresses_for_message(engine: Engine, message_id: int, m: MessageData) 
     _process_address_list(engine, message_id, getattr(m, "bcc_addrs", []) or [], AddressType.BCC)
 
 
+def _resolve_primary_sender(engine: Engine, message: MessageData) -> int | None:
+    """From アドレス一覧から代表送信者(sender_address_id) を決定し作成/取得する.
+
+    ルール: 最初の要素を採用。失敗時は None を返す(best-effort)。
+    """
+    try:
+        from_list = message.from_addrs
+        if not from_list:
+            return None
+        first = from_list[0]
+        email_norm = _normalize_email(str(first.email_address))
+        if not email_norm:
+            return None
+        return _find_or_create_address(engine, email_norm, first.display_name)
+    except (AttributeError, TypeError, ValueError):
+        logger.debug("Failed to resolve primary sender", exc_info=True)
+        return None
+
+
 def save_message(message: MessageData, engine: Engine | None = None) -> None:
     """単一のメールをDBへ保存する.
 
@@ -226,7 +245,10 @@ def save_message(message: MessageData, engine: Engine | None = None) -> None:
     # フォルダ名から folder_id を解決 (見つからなければ None のまま)
     folder_id = FolderDBManager().get_id(engine, message.folder) if message.folder else None
 
-    # Message を保存
+    # 代表送信者(sender_address_id) を先行抽出
+    primary_sender_id = _resolve_primary_sender(engine, message)
+
+    # Message を保存 (sender_address_id を含む)
     create_obj = MessageCreate(
         rfc822_message_id=message.rfc822_message_id,
         subject=message.subject,
@@ -240,6 +262,7 @@ def save_message(message: MessageData, engine: Engine | None = None) -> None:
         is_forwarded=message.is_forwarded,
         vendor_id=vendor_id,
         folder_id=folder_id,
+        sender_address_id=primary_sender_id,
     )
     created_message = message_manager.create(engine, create_obj)
     message_id = created_message.id

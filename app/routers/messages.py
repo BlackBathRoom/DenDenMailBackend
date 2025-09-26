@@ -56,19 +56,26 @@ def get_messages(
         limit=limit,
         order_by=["-date_received"],
     )
-    return (
-        [
+    if messages is None:
+        return []
+
+    resp: list[MessageHeaderDTO] = []
+    for m in messages:
+        sender_address = ""
+        if m.sender_address_id is not None:
+            addr = AddressDBManager().read_by_id(engine, m.sender_address_id)
+            if addr is not None:
+                sender_address = addr.email_address
+        resp.append(
             MessageHeaderDTO(
                 id=cast("int", m.id),
                 subject=m.subject,
                 date_received=m.date_received,
                 is_read=m.is_read,
+                sender_address=sender_address,
             )
-            for m in messages
-        ]
-        if messages
-        else []
-    )
+        )
+    return resp
 
 
 @router.get("/{vendor_id}/{folder_id}/{message_id}", summary="メッセージ本文(サニタイズ済み)と添付一覧を取得")

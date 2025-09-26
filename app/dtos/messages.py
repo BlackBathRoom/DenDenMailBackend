@@ -18,6 +18,7 @@ class MessageHeaderDTO(BaseDTO):
     subject: str
     date_received: datetime
     is_read: bool = False
+    sender_address: str
 
 
 class AttachmentDTO(BaseDTO):
