@@ -147,7 +147,7 @@ def register_vendor(vendor: CreateVendorRequestBody, engine: Annotated[Engine, D
     try:
         v = MailVendor(normalized)
     except ValueError:
-        raise HTTPException(status_code=400, detail=f"Unsupported vender: {vendor}") from None
+        raise HTTPException(status_code=400, detail=f"Unsupported vendor: {vendor}") from None
 
     vendor_manager = VendorDBManager()
     vendor_manager.register(engine, v)
