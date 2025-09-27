@@ -22,17 +22,17 @@ class AddressDTO(_BasePriorityDTO):
     name: str | None = None
 
 
-class UpdateDictionaryRequestDTO(_Priority):
+class UpdateDictionaryRequestBody(_Priority):
     pass
 
 
-class UpdateAddressRequestDTO(_Priority):
-    name: str
+class UpdateAddressRequestBody(_Priority):
+    pass
 
 
-class CreateDictionaryRequestDTO(_Priority):
+class CreateDictionaryRequestBody(_Priority):
     word: str
 
 
-class CreateAddressRequestDTO(_Priority):
+class CreateAddressRequestBody(_Priority):
     address_id: int

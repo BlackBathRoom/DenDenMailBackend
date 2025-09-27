@@ -6,11 +6,11 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from dtos.rules import (
     AddressDTO,
-    CreateAddressRequestDTO,
-    CreateDictionaryRequestDTO,
+    CreateAddressRequestBody,
+    CreateDictionaryRequestBody,
     DictionaryDTO,
-    UpdateAddressRequestDTO,
-    UpdateDictionaryRequestDTO,
+    UpdateAddressRequestBody,
+    UpdateDictionaryRequestBody,
 )
 from models.priority_person import PriorityPersonCreate, PriorityPersonUpdate
 from models.priority_word import PriorityWordCreate, PriorityWordUpdate
@@ -40,7 +40,7 @@ def get_dictionaries(
 
 @router.post("/dictionaries", summary="辞書に新しい単語を登録")
 def create_dictionary(
-    body: CreateDictionaryRequestDTO,
+    body: CreateDictionaryRequestBody,
     engine: Annotated[Engine, Depends(get_engine)],
 ) -> Response:
     manager = PriorityWordDBManager()
@@ -58,7 +58,7 @@ def create_dictionary(
 @router.patch("/dictionaries/{dictionary_id}", summary="登録済み辞書の優先度レベルを更新")
 def update_dictionary(
     dictionary_id: int,
-    body: UpdateDictionaryRequestDTO,
+    body: UpdateDictionaryRequestBody,
     engine: Annotated[Engine, Depends(get_engine)],
 ) -> Response:
     return update_by_id(
@@ -71,7 +71,7 @@ def update_dictionary(
 
 @router.post("/addresses", summary="アドレスに新しい優先度設定を登録")
 def create_address(
-    body: CreateAddressRequestDTO,
+    body: CreateAddressRequestBody,
     engine: Annotated[Engine, Depends(get_engine)],
 ) -> Response:
     if not AddressDBManager().exists(engine, body.address_id):
@@ -103,7 +103,7 @@ def get_addresses(
 @router.patch("/addresses/{address_id}", summary="登録済みアドレスの優先度レベルを更新")
 def update_address(
     address_id: int,
-    body: UpdateAddressRequestDTO,
+    body: UpdateAddressRequestBody,
     engine: Annotated[Engine, Depends(get_engine)],
 ) -> Response:
     if not AddressDBManager().exists(engine, address_id):

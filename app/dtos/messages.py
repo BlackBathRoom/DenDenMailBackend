@@ -63,7 +63,7 @@ class MessageBodyDTO(BaseDTO):
     attachments: list[AttachmentDTO] = Field(default_factory=list)
 
 
-class RegisterVendorRequestBody(BaseModel):
+class CreateVendorRequestBody(BaseModel):
     """ベンダー登録APIの成功レスポンスDTO.
 
     Attributes:
@@ -73,7 +73,7 @@ class RegisterVendorRequestBody(BaseModel):
     vendor: str
 
 
-class RegisteredFolderDTO(BaseDTO):
+class FolderDTO(BaseDTO):
     """登録済みフォルダDTO.
 
     Args:
@@ -84,7 +84,7 @@ class RegisteredFolderDTO(BaseDTO):
     name: str
 
 
-class RegisteredVendorDTO(BaseDTO):
+class VendorDTO(BaseDTO):
     """登録済みベンダーDTO.
 
     Args:

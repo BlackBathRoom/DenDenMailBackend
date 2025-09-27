@@ -7,12 +7,12 @@ from sqlalchemy.exc import SQLAlchemyError
 from app_conf import MailVendor
 from dtos.messages import (
     AddressDTO,
+    CreateVendorRequestBody,
+    FolderDTO,
     MessageBodyDTO,
     MessageHeaderDTO,
-    RegisteredFolderDTO,
-    RegisteredVendorDTO,
-    RegisterVendorRequestBody,
     UpdateAddressRequestBody,
+    VendorDTO,
 )
 from models.address import AddressUpdate
 from services.database.engine import get_engine
@@ -132,17 +132,17 @@ def get_message_part(
 
 
 @router.get("/folders", summary="登録済みフォルダの一覧取得")
-def get_registered_folders(engine: Annotated[Engine, Depends(get_engine)]) -> list[RegisteredFolderDTO]:
-    return get_list_obj(FolderDBManager(), engine, RegisteredFolderDTO)
+def get_registered_folders(engine: Annotated[Engine, Depends(get_engine)]) -> list[FolderDTO]:
+    return get_list_obj(FolderDBManager(), engine, FolderDTO)
 
 
 @router.get("/vendors", summary="登録済みベンダーの一覧取得")
-def get_registered_vendors(engine: Annotated[Engine, Depends(get_engine)]) -> list[RegisteredVendorDTO]:
-    return get_list_obj(VendorDBManager(), engine, RegisteredVendorDTO)
+def get_registered_vendors(engine: Annotated[Engine, Depends(get_engine)]) -> list[VendorDTO]:
+    return get_list_obj(VendorDBManager(), engine, VendorDTO)
 
 
 @router.post("/vendors", summary="対応ベンダーの登録")
-def register_vendor(vendor: RegisterVendorRequestBody, engine: Annotated[Engine, Depends(get_engine)]) -> Response:
+def register_vendor(vendor: CreateVendorRequestBody, engine: Annotated[Engine, Depends(get_engine)]) -> Response:
     normalized = vendor.vendor.lower().capitalize()
     try:
         v = MailVendor(normalized)
