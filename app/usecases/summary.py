@@ -38,7 +38,7 @@ def _get_plain_text_body(engine: Engine, message_id: int) -> str | None:
 
     # pick first non-attachment text/plain
     for p in parts:
-        if (p.is_attachment is False or p.is_attachment is None) and (p.mime_type, p.mime_subtype) == ("text", "plain"):
+        if not p.is_attachment and (p.mime_type, p.mime_subtype) == ("text", "plain"):
             content = p.content
             if content is None:
                 continue
