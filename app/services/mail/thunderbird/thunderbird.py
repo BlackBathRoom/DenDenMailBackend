@@ -72,7 +72,9 @@ class ThunderbirdClient(BaseMailClient[ThunderbirdConfig]):
             messages = list(mbox)
             messages.reverse()
 
-            for i, message in enumerate(messages[: count if count == ALL_GET_MAILS_COUNT else None]):
+            # count が ALL_GET_MAILS_COUNT (-1) の場合は全件取得し、それ以外は最新側から count 件
+            iter_messages = messages if count == ALL_GET_MAILS_COUNT else messages[:count]
+            for i, message in enumerate(iter_messages):
                 try:
                     mail_data = self._parse_single_mail(message)
                     if mail_data:
@@ -406,10 +408,9 @@ class ThunderbirdClient(BaseMailClient[ThunderbirdConfig]):
             key=lambda x: x.date_received or datetime.min.replace(tzinfo=datetime.now().astimezone().tzinfo),
             reverse=True,
         )
-
-        result = all_mails[:count]
+        # count が ALL_GET_MAILS_COUNT(-1) の場合は全件、それ以外は先頭から count 件 (date_received 降順ソート済み)
+        result = all_mails if count == ALL_GET_MAILS_COUNT else all_mails[:count]
         logger.info("Retrieved %d mails from %d mailboxes", len(result), len(self.path.mailbox_files))
-
         return result
 
     def get_mail(self, message_id: str) -> MessageData | None:
