@@ -264,7 +264,6 @@ class AddressUpdate(SQLModel):
 
 
 class AddressType(str, Enum):
-    __slots__ = ()
     FROM = "from"
     TO = "to"
     CC = "cc"
