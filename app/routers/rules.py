@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.engine import Engine
@@ -78,6 +78,11 @@ def create_address(
         raise HTTPException(status_code=400, detail=f"Address ID {body.address_id} is not registered") from None
 
     manager = PriorityPersonDBManager()
+
+    if manager.is_registered(engine, body.address_id):
+        raise HTTPException(
+            status_code=400, detail=f"Address ID {body.address_id} is already registered priority"
+        ) from None
     try:
         manager.create(
             engine,
@@ -93,11 +98,19 @@ def create_address(
 def get_addresses(
     engine: Annotated[Engine, Depends(get_engine)],
 ) -> list[AddressDTO]:
-    return get_list_obj(
-        PriorityPersonDBManager(),
-        engine,
-        AddressDTO,
-    )
+    # Eager load address to avoid detached lazy load issues
+    persons = PriorityPersonDBManager().read_with_address(engine)
+    if persons is None:
+        return []
+    return [
+        AddressDTO(
+            id=cast("int", person.id),
+            address=person.address.email_address,
+            name=person.address.display_name,
+            priority=person.priority,
+        )
+        for person in persons
+    ]
 
 
 @router.patch("/addresses/{address_id}", summary="登録済みアドレスの優先度レベルを更新")
