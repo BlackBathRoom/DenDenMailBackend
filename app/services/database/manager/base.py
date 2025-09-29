@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, overload
 
 from pydantic import BaseModel, ValidationError
+from sqlalchemy import func
 from sqlmodel import Session, SQLModel, select
 
 from services.database.manager.condition import resolve_condition
@@ -233,3 +234,22 @@ class BaseDBManager[TBaseModel: SQLModel, TCreate: BaseModel, TUpdate: (BaseMode
             bool: レコードが存在する場合はTrue、存在しない場合はFalse.
         """
         return self.read_by_id(engine, obj_id) is not None
+
+    def count(self, engine: Engine, *, conditions: list[Condition] | None = None) -> int:
+        """条件に一致するレコードの数をカウントする.
+
+        Args:
+            engine (Engine): SQLAlchemyエンジン.
+            conditions (list[Condition] | None): カウント対象を特定するための条件リスト.
+
+        Returns:
+            int: 条件に一致するレコードの数.
+        """
+        with Session(engine) as session:
+            stmt = select(func.count()).select_from(self.model)
+
+            if conditions is not None:
+                for c in conditions:
+                    stmt = stmt.where(resolve_condition(self.model, c))
+
+            return session.exec(stmt).one()
