@@ -132,8 +132,27 @@ def get_message_part(
 
 
 @router.get("/folders", summary="登録済みフォルダの一覧取得")
-def get_registered_folders(engine: Annotated[Engine, Depends(get_engine)]) -> list[FolderDTO]:
-    return get_list_obj(FolderDBManager(), engine, FolderDTO)
+def get_registered_folders(
+    engine: Annotated[Engine, Depends(get_engine)], vendor_id: int | None = None
+) -> list[FolderDTO]:
+    folders = FolderDBManager().read(engine)
+    if folders is None:
+        return []
+
+    return [
+        FolderDTO(
+            id=cast("int", f.id),
+            name=f.name,
+            message_count=MessageDBManager().count(
+                engine,
+                conditions=[
+                    {"operator": "eq", "field": "folder_id", "value": f.id},
+                    *([{"operator": "eq", "field": "vendor_id", "value": vendor_id}] if vendor_id is not None else []),
+                ],
+            ),
+        )
+        for f in folders
+    ]
 
 
 @router.get("/vendors", summary="登録済みベンダーの一覧取得")

@@ -79,9 +79,11 @@ class FolderDTO(BaseDTO):
     Args:
         id (int): フォルダID.
         name (str): フォルダ名.
+        message_count (int): フォルダ内メッセージ数.
     """
 
     name: str
+    message_count: int
 
 
 class VendorDTO(BaseDTO):
