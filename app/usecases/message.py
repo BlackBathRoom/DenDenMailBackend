@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol, cast
 
 import bleach
 
@@ -17,7 +17,7 @@ from app_conf import (
     HTML_SANITIZE_EXTRA_TAGS,
     MailVendor,
 )
-from dtos.messages import AttachmentDTO, MessageBodyDTO
+from dtos.messages import AttachmentDTO, MessageBodyDTO, MessageHeaderDTO
 from models.address import AddressCreate, AddressUpdate
 from models.message import MessageCreate
 from models.message_address_map import AddressType, MessageAddressMapCreate
@@ -478,6 +478,33 @@ def _partition_parts(
     return attachments, plain_part, html_part
 
 
+def _build_message_header(
+    message_id: int,
+    engine: Engine,
+) -> MessageHeaderDTO:
+    """Fetch message header info and build MessageHeaderDTO.
+
+    Raises MessageNotFoundError if message not found.
+    """
+    message_manager = MessageDBManager()
+    msg = message_manager.read_by_id(engine, message_id)
+    if not msg:
+        msg = f"Message not found: id={message_id}"
+        raise MessageNotFoundError(msg)
+    sender_address = ""
+    if msg.sender_address_id is not None:
+        addr = AddressDBManager().read_by_id(engine, msg.sender_address_id)
+        if addr is not None:
+            sender_address = addr.email_address
+    return MessageHeaderDTO(
+        id=cast("int", msg.id),
+        subject=msg.subject,
+        date_received=msg.date_received,
+        is_read=msg.is_read,
+        sender_address=sender_address,
+    )
+
+
 def get_message_body(
     message_id: int,
     content_url_builder: Callable[[int], str],
@@ -552,6 +579,7 @@ def get_message_body(
     encoding = html_enc or text_enc
     return MessageBodyDTO(
         id=message_id,
+        header=_build_message_header(message_id, engine),
         text=text,
         html=html_processed,
         encoding=encoding,

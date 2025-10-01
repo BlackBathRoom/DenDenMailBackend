@@ -57,6 +57,7 @@ class MessageBodyDTO(BaseDTO):
         attachments (list[AttachmentDTO]): 添付ファイル一覧 (is_inline=False を対象).
     """
 
+    header: MessageHeaderDTO
     text: str | None = None
     html: str | None = None
     encoding: str | None = None
