@@ -152,9 +152,6 @@ def delete_address(
     engine: Annotated[Engine, Depends(get_engine)],
 ) -> Response:
     manager = PriorityPersonDBManager()
-    if not manager.is_registered(engine, address_id):
-        logger.warning("Address ID %s is not registered as priority", address_id)
-        raise HTTPException(status_code=400, detail=f"Address ID {address_id} is not registered as priority") from None
     try:
         manager.delete_by_id(engine, address_id)
     except SQLAlchemyError as exc:
