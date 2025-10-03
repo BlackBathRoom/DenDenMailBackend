@@ -123,13 +123,16 @@ def update_message_read_status(
 ) -> Response:
     manager = MessageDBManager()
     try:
-        if manager.read(
-            engine,
-            conditions=[
-                {"operator": "eq", "field": "id", "value": message_id},
-                {"operator": "eq", "field": "vendor_id", "value": vendor_id},
-                {"operator": "eq", "field": "folder_id", "value": folder_id},
-            ],
+        if (
+            manager.read(
+                engine,
+                conditions=[
+                    {"operator": "eq", "field": "id", "value": message_id},
+                    {"operator": "eq", "field": "vendor_id", "value": vendor_id},
+                    {"operator": "eq", "field": "folder_id", "value": folder_id},
+                ],
+            )
+            is None
         ):
             msg = f"Message {message_id} not found in vendor {vendor_id} folder {folder_id}"
             raise HTTPException(status_code=404, detail=msg)
