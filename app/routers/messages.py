@@ -12,10 +12,12 @@ from dtos.messages import (
     FolderDTO,
     MessageBodyDTO,
     MessageHeaderDTO,
+    SwitchReadStatusRequestBody,
     UpdateAddressRequestBody,
     VendorDTO,
 )
 from models.address import AddressUpdate
+from models.message import MessageUpdate
 from services.database.engine import get_engine
 from services.database.manager import (
     AddressDBManager,
@@ -106,6 +108,40 @@ def get_message_body_endpoint(
     except ConflictError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from None
     return body
+
+
+@router.patch(
+    "/{vendor_id}/{folder_id}/{message_id}/read",
+    summary="メッセージの既読/未読状態更新",
+)
+def update_message_read_status(
+    vendor_id: int,
+    folder_id: int,
+    message_id: int,
+    body: SwitchReadStatusRequestBody,
+    engine: Annotated[Engine, Depends(get_engine)],
+) -> Response:
+    manager = MessageDBManager()
+    try:
+        if manager.read(
+            engine,
+            conditions=[
+                {"operator": "eq", "field": "id", "value": message_id},
+                {"operator": "eq", "field": "vendor_id", "value": vendor_id},
+                {"operator": "eq", "field": "folder_id", "value": folder_id},
+            ],
+        ):
+            msg = f"Message {message_id} not found in vendor {vendor_id} folder {folder_id}"
+            raise HTTPException(status_code=404, detail=msg)
+        manager.update_by_id(
+            engine,
+            message_id,
+            MessageUpdate(is_read=body.is_read),
+        )
+    except SQLAlchemyError:
+        logger.exception("Failed to update message read status: %s")
+        raise HTTPException(status_code=500, detail="Internal Server Error") from None
+    return Response(content="Message read status updated", status_code=200)
 
 
 @router.get(

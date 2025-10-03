@@ -64,6 +64,16 @@ class MessageBodyDTO(BaseDTO):
     attachments: list[AttachmentDTO] = Field(default_factory=list)
 
 
+class SwitchReadStatusRequestBody(BaseModel):
+    """既読/未読切り替えリクエストボディDTO.
+
+    Attributes:
+        is_read (bool): 既読にする場合は true、未読にする場合は false.
+    """
+
+    is_read: bool
+
+
 class CreateVendorRequestBody(BaseModel):
     """ベンダー登録APIの成功レスポンスDTO.
 
