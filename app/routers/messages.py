@@ -137,9 +137,15 @@ def get_message_part(
     return Response(content=content, media_type=media_type, headers=headers)
 
 
+class GetFoldersQueryParams(BaseModel, extra="ignore"):
+    vendor_id: int | None = Field(None, description="ベンダーIDでフィルタリング")
+    is_read: bool | None = Field(None, description="既読/未読でフィルタリング")
+    only_priority_person: bool = Field(default=False, description="優先度の高いメールのみ取得")
+
+
 @router.get("/folders", summary="登録済みフォルダの一覧取得")
 def get_registered_folders(
-    engine: Annotated[Engine, Depends(get_engine)], vendor_id: int | None = None
+    engine: Annotated[Engine, Depends(get_engine)], query: Annotated[GetFoldersQueryParams, Depends()]
 ) -> list[FolderDTO]:
     folders = FolderDBManager().read(engine)
     if folders is None:
@@ -153,7 +159,16 @@ def get_registered_folders(
                 engine,
                 conditions=[
                     {"operator": "eq", "field": "folder_id", "value": f.id},
-                    *([{"operator": "eq", "field": "vendor_id", "value": vendor_id}] if vendor_id is not None else []),
+                    *(
+                        [{"operator": "eq", "field": "vendor_id", "value": query.vendor_id}]
+                        if query.vendor_id is not None
+                        else []
+                    ),
+                    *(
+                        [{"operator": "eq", "field": "is_read", "value": query.is_read}]
+                        if query.is_read is not None
+                        else []
+                    ),
                 ],
             ),
         )
