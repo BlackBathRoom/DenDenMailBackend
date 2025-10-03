@@ -1,6 +1,7 @@
 from typing import Annotated, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Response
+from pydantic import BaseModel, Field
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -35,14 +36,19 @@ router = APIRouter(
 logger = get_logger(__name__)
 
 
+class GetMessagesQueryParams(BaseModel, extra="ignore"):
+    is_read: bool | None = Field(None, description="既読/未読でフィルタリング")
+    offset: int = Field(0, description="取得開始位置")
+    limit: int = Field(50, description="取得件数")
+    only_priority_person: bool = Field(default=False, description="優先度の高いメールのみ取得")
+
+
 @router.get("/{vendor_id}/{folder_id}", summary="対応ベンダーからメールの一覧取得。bodyは無し。")
 def get_messages(
     vendor_id: int,
     folder_id: int,
     engine: Annotated[Engine, Depends(get_engine)],
-    offset: int = 0,
-    limit: int = 50,
-    is_read: bool | None = None,  # noqa: FBT001
+    query: Annotated[GetMessagesQueryParams, Depends()],
 ) -> list[MessageHeaderDTO]:
     message_manager = MessageDBManager()
     messages = message_manager.read(
@@ -50,10 +56,10 @@ def get_messages(
         conditions=[
             {"operator": "eq", "field": "vendor_id", "value": vendor_id},
             {"operator": "eq", "field": "folder_id", "value": folder_id},
-            *([{"operator": "eq", "field": "is_read", "value": is_read}] if is_read is not None else []),
+            *([{"operator": "eq", "field": "is_read", "value": query.is_read}] if query.is_read is not None else []),
         ],
-        offset=offset,
-        limit=limit,
+        offset=query.offset,
+        limit=query.limit,
         order_by=["-date_received"],
     )
     if messages is None:
