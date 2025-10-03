@@ -1,4 +1,4 @@
-from typing import Annotated, cast
+from typing import Annotated, Literal, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field
@@ -23,8 +23,12 @@ from services.database.manager import (
     AddressDBManager,
     FolderDBManager,
     MessageDBManager,
+    PriorityPersonDBManager,
     VendorDBManager,
 )
+
+# このモジュールでannotationを有効にすると、fastapiの起動エラーが起きるのでignore
+from services.database.manager.condition import Condition  # noqa: TC001
 from usecases import get_list_obj, update_by_id
 from usecases.errors import ConflictError, NotFoundError, ValidationError
 from usecases.message import connect_vendor, get_message_body, get_message_part_content, save_messages
@@ -43,27 +47,58 @@ class GetMessagesQueryParams(BaseModel, extra="ignore"):
     offset: int = Field(0, description="取得開始位置")
     limit: int = Field(50, description="取得件数")
     only_priority_person: bool = Field(default=False, description="優先度の高いメールのみ取得")
+    order_by: Literal["date_received", "priority_person"] = Field(
+        "date_received", description="並び順。date_received: 受信日時順, priority_person: 優先度の高いメール順"
+    )
 
 
 @router.get("/{vendor_id}/{folder_id}", summary="対応ベンダーからメールの一覧取得。bodyは無し。")
-def get_messages(
+def get_messages(  # noqa: C901
     vendor_id: int,
     folder_id: int,
     engine: Annotated[Engine, Depends(get_engine)],
     query: Annotated[GetMessagesQueryParams, Depends()],
 ) -> list[MessageHeaderDTO]:
     message_manager = MessageDBManager()
-    messages = message_manager.read(
-        engine,
-        conditions=[
-            {"operator": "eq", "field": "vendor_id", "value": vendor_id},
-            {"operator": "eq", "field": "folder_id", "value": folder_id},
-            *([{"operator": "eq", "field": "is_read", "value": query.is_read}] if query.is_read is not None else []),
-        ],
-        offset=query.offset,
-        limit=query.limit,
-        order_by=["-date_received"],
-    )
+    conditions: list[Condition] = [
+        {"operator": "eq", "field": "vendor_id", "value": vendor_id},
+        {"operator": "eq", "field": "folder_id", "value": folder_id},
+    ]
+
+    if query.is_read is not None:
+        conditions.append({"operator": "eq", "field": "is_read", "value": query.is_read})
+
+    ids = None
+    if query.only_priority_person:
+        priority_persons = PriorityPersonDBManager().read_with_address(engine, order_by=["-priority"])
+        if not priority_persons:
+            return []
+        ids = [p.address_id for p in priority_persons]
+        if query.order_by != "priority_person":
+            conditions.append({"operator": "in", "field": "sender_address_id", "value": ids})
+
+    if query.only_priority_person and query.order_by == "priority_person" and ids is not None:
+        messages = []
+        for addr_id in ids:
+            msg = message_manager.read(
+                engine,
+                conditions=[
+                    *conditions,
+                    {"operator": "eq", "field": "sender_address_id", "value": addr_id},
+                ],
+                order_by=["-date_received"],
+            )
+            if msg is not None:
+                messages.extend(msg)
+    else:
+        messages = message_manager.read(
+            engine,
+            conditions=conditions,
+            offset=query.offset,
+            limit=query.limit,
+            order_by=["-date_received"],
+        )
+
     if messages is None:
         return []
 
@@ -190,6 +225,22 @@ def get_registered_folders(
     if folders is None:
         return []
 
+    conditions: list[Condition] = []
+
+    if query.vendor_id is not None:
+        conditions.append({"operator": "eq", "field": "vendor_id", "value": query.vendor_id})
+
+    if query.is_read is not None:
+        conditions.append({"operator": "eq", "field": "is_read", "value": query.is_read})
+
+    if query.only_priority_person:
+        priority_persons = PriorityPersonDBManager().read_with_address(engine)
+        if not priority_persons:
+            return []
+        conditions.append(
+            {"operator": "in", "field": "sender_address_id", "value": [p.address_id for p in priority_persons]}
+        )
+
     return [
         FolderDTO(
             id=cast("int", f.id),
@@ -198,16 +249,7 @@ def get_registered_folders(
                 engine,
                 conditions=[
                     {"operator": "eq", "field": "folder_id", "value": f.id},
-                    *(
-                        [{"operator": "eq", "field": "vendor_id", "value": query.vendor_id}]
-                        if query.vendor_id is not None
-                        else []
-                    ),
-                    *(
-                        [{"operator": "eq", "field": "is_read", "value": query.is_read}]
-                        if query.is_read is not None
-                        else []
-                    ),
+                    *conditions,
                 ],
             ),
         )

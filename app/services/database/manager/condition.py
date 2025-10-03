@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Literal, TypedDict, cast
 
@@ -41,7 +41,7 @@ type DBPrimitive = str | int | float | bool | bytes | datetime | None
 class FieldCondition(TypedDict):
     field: str
     operator: Operator
-    value: DBPrimitive | list[DBPrimitive]
+    value: DBPrimitive | Sequence[DBPrimitive]
 
 
 class LogicalCondition(TypedDict):
