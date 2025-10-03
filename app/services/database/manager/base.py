@@ -5,15 +5,16 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, overload
 
 from pydantic import BaseModel, ValidationError
+from sqlalchemy import func
 from sqlmodel import Session, SQLModel, select
 
-from services.database.condition import resolve_condition
+from services.database.manager.condition import resolve_condition
 from utils.logging import get_logger
 
 if TYPE_CHECKING:
     from sqlalchemy import Engine
 
-    from services.database.condition import Condition
+    from services.database.manager.condition import Condition
 
 logger = get_logger(__name__)
 
@@ -59,7 +60,7 @@ class BaseDBManager[TBaseModel: SQLModel, TCreate: BaseModel, TUpdate: (BaseMode
             raise
         return converted_obj
 
-    def create(self, engine: Engine, obj: TCreate) -> None:
+    def create(self, engine: Engine, obj: TCreate) -> TBaseModel:
         """新しいレコードを作成する.
 
         Args:
@@ -70,6 +71,9 @@ class BaseDBManager[TBaseModel: SQLModel, TCreate: BaseModel, TUpdate: (BaseMode
             create_obj = self._convert_model(obj)
             session.add(create_obj)
             session.commit()
+
+            session.refresh(create_obj)
+        return create_obj
 
     def read(
         self,
@@ -218,3 +222,34 @@ class BaseDBManager[TBaseModel: SQLModel, TCreate: BaseModel, TUpdate: (BaseMode
 
             session.delete(db_obj)
             session.commit()
+
+    def exists(self, engine: Engine, obj_id: int) -> bool:
+        """指定したIDのレコードが存在するか確認する.
+
+        Args:
+            engine (Engine): SQLAlchemyエンジン.
+            obj_id (int): 確認するオブジェクトのID.
+
+        Returns:
+            bool: レコードが存在する場合はTrue、存在しない場合はFalse.
+        """
+        return self.read_by_id(engine, obj_id) is not None
+
+    def count(self, engine: Engine, *, conditions: list[Condition] | None = None) -> int:
+        """条件に一致するレコードの数をカウントする.
+
+        Args:
+            engine (Engine): SQLAlchemyエンジン.
+            conditions (list[Condition] | None): カウント対象を特定するための条件リスト.
+
+        Returns:
+            int: 条件に一致するレコードの数.
+        """
+        with Session(engine) as session:
+            stmt = select(func.count()).select_from(self.model)
+
+            if conditions is not None:
+                for c in conditions:
+                    stmt = stmt.where(resolve_condition(self.model, c))
+
+            return session.exec(stmt).one()

@@ -6,15 +6,25 @@ from datetime import datetime
 from email.errors import MessageError
 from email.header import decode_header
 from email.message import Message
-from email.utils import parseaddr, parsedate_to_datetime
+from email.utils import getaddresses, parseaddr, parsedate_to_datetime
 from pathlib import Path
 
-from app_conf import MailVender
-from services.mail.base import BaseClientConfig, BaseMailClient, MessageData, MessagePartData
+from pydantic import ValidationError
+
+from app_conf import MailVendor
+from services.mail.base import (
+    BaseClientConfig,
+    BaseMailClient,
+    MessageAddressData,
+    MessageData,
+    MessagePartData,
+)
 from services.mail.thunderbird.thunderbird_path import ThunderbirdPath
 from utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+ALL_GET_MAILS_COUNT = -1
 
 
 class ThunderbirdConfig(BaseClientConfig):
@@ -24,7 +34,9 @@ class ThunderbirdConfig(BaseClientConfig):
 class ThunderbirdClient(BaseMailClient[ThunderbirdConfig]):
     """Thunderbirdメールクライアントの実装."""
 
-    def __init__(self, config: ThunderbirdConfig) -> None:
+    def __init__(self, config: ThunderbirdConfig | None = None) -> None:
+        if config is None:
+            config = {"connection_type": "local"}
         super().__init__(config)
         self.path = ThunderbirdPath()
 
@@ -60,7 +72,9 @@ class ThunderbirdClient(BaseMailClient[ThunderbirdConfig]):
             messages = list(mbox)
             messages.reverse()
 
-            for i, message in enumerate(messages[:count]):
+            # count が ALL_GET_MAILS_COUNT (-1) の場合は全件取得し、それ以外は最新側から count 件
+            iter_messages = messages if count == ALL_GET_MAILS_COUNT else messages[:count]
+            for i, message in enumerate(iter_messages):
                 try:
                     mail_data = self._parse_single_mail(message)
                     if mail_data:
@@ -95,6 +109,9 @@ class ThunderbirdClient(BaseMailClient[ThunderbirdConfig]):
 
             parts = self._extract_parts(message)
 
+            # アドレス抽出
+            addrs = self._parse_addresses(message)
+
             # MailDataオブジェクト作成
             mail_data = MessageData(
                 rfc822_message_id=rfc822_message_id,
@@ -107,8 +124,14 @@ class ThunderbirdClient(BaseMailClient[ThunderbirdConfig]):
                 is_replied=False,
                 is_flagged=False,
                 is_forwarded=False,
-                vendor=MailVender.THUNDERBIRD,
+                vendor_id=0,  # db登録時に設定
+                folder_id=None,  # db登録時に設定
+                mail_vendor=MailVendor.THUNDERBIRD,
                 parts=parts,
+                from_addrs=addrs.get("from", []),
+                to_addrs=addrs.get("to", []),
+                cc_addrs=addrs.get("cc", []),
+                bcc_addrs=addrs.get("bcc", []),
             )
 
         except (MessageError, UnicodeDecodeError, ValueError) as e:
@@ -141,6 +164,45 @@ class ThunderbirdClient(BaseMailClient[ThunderbirdConfig]):
             # パースに失敗した場合はデフォルト値を返す
             return "送信者不明", "unknown@example.com"
         return name or "送信者不明", address
+
+    def _parse_addresses(self, message: Message) -> dict[str, list[MessageAddressData]]:
+        """ヘッダから From/To/Cc/Bcc のアドレスを抽出して返す.
+
+        Returns:
+            dict[str, list[MessageAddressData]]: keys are 'from', 'to', 'cc', 'bcc'.
+        """
+
+        def norm(addr: tuple[str, str]) -> MessageAddressData | None:
+            name, email = addr
+            email = (email or "").strip().lower()
+            if not email or "@" not in email:
+                return None
+            name = (name or "").strip()
+            try:
+                return MessageAddressData(email_address=email, display_name=name or None)
+            except ValidationError as ve:
+                logger.debug("Invalid email address skipped: raw=%r error=%s", addr, ve)
+                return None
+
+        result: dict[str, list[MessageAddressData]] = {"from": [], "to": [], "cc": [], "bcc": []}
+        # From は単数または複数あり得る
+        from_list = getaddresses(message.get_all("From", []))
+        to_list = getaddresses(message.get_all("To", []))
+        cc_list = getaddresses(message.get_all("Cc", []))
+        bcc_list = getaddresses(message.get_all("Bcc", []))
+
+        for key, lst in (("from", from_list), ("to", to_list), ("cc", cc_list), ("bcc", bcc_list)):
+            seen: set[str] = set()
+            for raw in lst:
+                item = norm(raw)
+                if item is None:
+                    continue
+                if item.email_address in seen:
+                    continue
+                seen.add(item.email_address)
+                result[key].append(item)
+
+        return result
 
     def _decode_header(self, header: str) -> str:
         """メールヘッダーをデコード.
@@ -312,13 +374,18 @@ class ThunderbirdClient(BaseMailClient[ThunderbirdConfig]):
         """全メールボックスから新規メールを取得.
 
         Args:
-            count (int): 取得するメールの数.デフォルトは10件.
+            count (int): 取得するメールの数.デフォルトは10件.-1は全件取得.
             cursor_datetime (datetime | None): この時刻以降のメールのみ取得.
 
         Returns:
             list[MessageData]: 取得したメールのリスト.
         """
         all_mails = []
+
+        if count < ALL_GET_MAILS_COUNT or count == 0:
+            msg = "Count must be -1 (all) or a positive integer"
+            logger.error(msg)
+            raise ValueError(msg)
 
         for mailbox_file in self.path.mailbox_files:
             try:
@@ -341,10 +408,9 @@ class ThunderbirdClient(BaseMailClient[ThunderbirdConfig]):
             key=lambda x: x.date_received or datetime.min.replace(tzinfo=datetime.now().astimezone().tzinfo),
             reverse=True,
         )
-
-        result = all_mails[:count]
+        # count が ALL_GET_MAILS_COUNT(-1) の場合は全件、それ以外は先頭から count 件 (date_received 降順ソート済み)
+        result = all_mails if count == ALL_GET_MAILS_COUNT else all_mails[:count]
         logger.info("Retrieved %d mails from %d mailboxes", len(result), len(self.path.mailbox_files))
-
         return result
 
     def get_mail(self, message_id: str) -> MessageData | None:
@@ -391,13 +457,6 @@ if __name__ == "__main__":
                 logger.info("No mails found.")
             else:
                 mail = mails[0]
-                logger.info(
-                    "Latest Mail: subject=%s id=%s received=%s vendor=%s",
-                    mail.subject,
-                    mail.rfc822_message_id,
-                    mail.date_received.isoformat(),
-                    mail.vendor,
-                )
                 if mail.date_sent is not None:
                     logger.info("  date_sent=%s", mail.date_sent.isoformat())
                 if mail.in_reply_to:

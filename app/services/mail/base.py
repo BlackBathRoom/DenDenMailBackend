@@ -3,8 +3,9 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import TypedDict
 
-from pydantic import Field
+from pydantic import BaseModel, EmailStr, Field
 
+from app_conf import MailVendor  # noqa: TC001
 from models.message import BaseMessage
 from models.message_part import BaseMessagePart
 from utils.check_implementation import check_implementation
@@ -21,21 +22,40 @@ class MessagePartData(BaseMessagePart):
     parent_part_order: int | None = None
 
 
+class MessageAddressData(BaseModel):
+    """メールアドレスの取得時データ.
+
+    Notes:
+        DBの Address とは分離し、取得レイヤの最小データとして保持する。
+    """
+
+    email_address: EmailStr
+    display_name: str | None = None
+
+
 class MessageData(BaseMessage):
     """メールデータの型定義.
 
     メールクライアントから取得した情報も含む.
 
     Attributes:
-    rfc822_message_id (str): RFC 822 Message-ID.
+        rfc822_message_id (str): RFC 822 Message-ID.
         subject (str): 件名.
-    date_received (datetime): 受信日時.
-    date_sent (datetime | None): 送信日時(ヘッダーのDate).
+        date_received (datetime): 受信日時.
+        date_sent (datetime | None): 送信日時(ヘッダーのDate).
         is_read (bool): 既読フラグ.
-    vendor (str): メールクライアント名.
+        vendor (str): メールクライアント名.
     """
 
+    # dbのidを検索し含めるのは冗長なのでenumをフィールドで保持、判断
+    mail_vendor: MailVendor
+    folder: str | None = Field(default="INBOX")
     parts: list[MessagePartData] = Field(default_factory=list)
+    # 取得時に判明しているアドレス群(保存時に正規化し Address/MESSAGE_ADDRESS_MAP へ)
+    from_addrs: list[MessageAddressData] = Field(default_factory=list)
+    to_addrs: list[MessageAddressData] = Field(default_factory=list)
+    cc_addrs: list[MessageAddressData] = Field(default_factory=list)
+    bcc_addrs: list[MessageAddressData] = Field(default_factory=list)
 
 
 class BaseClientConfig(TypedDict):

@@ -16,7 +16,8 @@ erDiagram
         boolean is_replied
         boolean is_flagged
         boolean is_forwarded
-        varchar vendor
+        int vendor_id FK
+        int folder_id FK
         datetime created_at
         datetime updated_at
     }
@@ -100,6 +101,21 @@ erDiagram
         datetime updated_at
     }
 
+    VENDORS {
+        int id PK
+        varchar name "UNIQUE"
+        datetime created_at
+        datetime updated_at
+    }
+
+    FOLDERS {
+        int id PK
+        varchar name "UNIQUE"
+        varchar system_type "UNIQUE"
+        datetime created_at
+        datetime updated_at
+    }
+
     %% Relationships
     MESSAGES ||--|| SUMMARIES : "has one"
     MESSAGES ||--o{ MESSAGE_ADDRESS_MAP : "addresses"
@@ -114,6 +130,9 @@ erDiagram
     TAGS ||--o{ MESSAGE_TAG_MAP : "tags"
 
     ADDRESSES ||--o| PRIORITY_PERSONS : "priority"
+
+    VENDORS ||--o{ MESSAGES : "provides"
+    FOLDERS ||--o{ MESSAGES : "contains"
 ```
 
 ## 詳細
@@ -131,6 +150,7 @@ erDiagram
     - TAGS: tag_name（タグ名のリネーム）
     - PRIORITY_WORDS: priority（重みの調整）
     - PRIORITY_PERSONS: priority（重みの調整）
+    - FOLDERS: name（表示名変更。system_type は固定）
 
 
 ### MESSAGES（メール本体）
@@ -150,11 +170,39 @@ erDiagram
 | is_replied | boolean |  | 返信済みフラグ | ○ |
 | is_flagged | boolean |  | フラグ付与フラグ | ○ |
 | is_forwarded | boolean |  | 転送済みフラグ | ○ |
-| vendor | varchar |  | 取得元クライアント識別子（例: thunderbird） | × |
+| vendor_id | int | FK → VENDORS.id | 取得元クライアントのID | × |
+| folder_id | int | FK → FOLDERS.id | 所属フォルダのID | ○ |
 | created_at | datetime |  | レコード作成日時 | × |
 | updated_at | datetime |  | レコード更新日時（自動更新） | × |
 
 備考: 複合インデックス (is_read, date_received DESC) を推奨。
+
+---
+
+### FOLDERS（フォルダ）
+
+メールが所属するフォルダを管理するマスタテーブル。INBOX, Sent など。
+
+| フィールド | 型 | 制約 | 説明 | 更新可 |
+|---|---|---|---|---|
+| id | int | PK | 内部ID | × |
+| name | varchar | UNIQUE | フォルダ名（例: INBOX, Sent, Drafts） | ○ |
+| system_type | varchar | UNIQUE | システム固定フォルダ種別（例: inbox, sent）。NULL許容 | × |
+| created_at | datetime |  | レコード作成日時 | × |
+| updated_at | datetime |  | レコード更新日時（自動更新） | × |
+
+---
+
+### VENDORS（取得元クライアント）
+
+メールの取得元クライアント/サービスを管理するマスタテーブル。
+
+| フィールド | 型 | 制約 | 説明 | 更新可 |
+|---|---|---|---|---|
+| id | int | PK | 内部ID | × |
+| name | varchar | UNIQUE | クライアント/サービス名（例: thunderbird, gmail_import） | × |
+| created_at | datetime |  | レコード作成日時 | × |
+| updated_at | datetime |  | レコード更新日時（自動更新） | × |
 
 ---
 

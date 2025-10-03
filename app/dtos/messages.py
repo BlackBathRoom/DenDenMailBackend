@@ -1,0 +1,131 @@
+from datetime import datetime
+
+from pydantic import BaseModel, Field
+
+from .shared.base import BaseDTO
+
+
+class MessageHeaderDTO(BaseDTO):
+    """メッセージヘッダDTO.
+
+    Attributes:
+        id (int): メッセージID.
+        subject (str): 件名.
+        date_received (datetime): 受信日時.
+        is_read (bool): 既読フラグ.
+    """
+
+    subject: str
+    date_received: datetime
+    is_read: bool = False
+    sender_address: str
+
+
+class AttachmentDTO(BaseDTO):
+    """添付ファイルDTO.
+
+    添付のメタデータのみを返す。実体は別エンドポイントで配信する想定。
+
+    Attributes:
+        id (int): メッセージパートID.
+        filename (str | None): ファイル名.
+        mime_type (str): MIMEタイプ (例: "image").
+        mime_subtype (str): MIMEサブタイプ (例: "png").
+        size_bytes (int | None): バイトサイズ.
+        content_id (str | None): CID (インライン参照用).
+        is_inline (bool): インライン表示用かどうか.
+        content_url (str): 実体取得URL.
+    """
+
+    filename: str | None = None
+    mime_type: str
+    mime_subtype: str
+    size_bytes: int | None = None
+    content_id: str | None = None
+    is_inline: bool = False
+    content_url: str
+
+
+class MessageBodyDTO(BaseDTO):
+    """メッセージ本文DTO.
+
+    Attributes:
+        id (int): メッセージID.
+        text (str | None): プレーンテキスト本文.
+        html (str | None): HTML本文 (cid は URL にリライト済みを想定).
+        encoding (str | None): デコードに用いた推定エンコーディング.
+        attachments (list[AttachmentDTO]): 添付ファイル一覧 (is_inline=False を対象).
+    """
+
+    header: MessageHeaderDTO
+    text: str | None = None
+    html: str | None = None
+    encoding: str | None = None
+    attachments: list[AttachmentDTO] = Field(default_factory=list)
+
+
+class SwitchReadStatusRequestBody(BaseModel):
+    """既読/未読切り替えリクエストボディDTO.
+
+    Attributes:
+        is_read (bool): 既読にする場合は true、未読にする場合は false.
+    """
+
+    is_read: bool
+
+
+class CreateVendorRequestBody(BaseModel):
+    """ベンダー登録APIの成功レスポンスDTO.
+
+    Attributes:
+        vendor (str): 登録されたベンダー名.
+    """
+
+    vendor: str
+
+
+class FolderDTO(BaseDTO):
+    """登録済みフォルダDTO.
+
+    Args:
+        id (int): フォルダID.
+        name (str): フォルダ名.
+        message_count (int): フォルダ内メッセージ数.
+    """
+
+    name: str
+    message_count: int
+
+
+class VendorDTO(BaseDTO):
+    """登録済みベンダーDTO.
+
+    Args:
+        id (int): ベンダーID.
+        name (str): ベンダー名.
+    """
+
+    name: str
+
+
+class AddressDTO(BaseDTO):
+    """メールアドレスDTO.
+
+    Attributes:
+        id (int): メールアドレスID.
+        display_name (str | None): 表示名.
+        email_address (str): メールアドレス.
+    """
+
+    display_name: str | None = None
+    email_address: str
+
+
+class UpdateAddressRequestBody(BaseModel):
+    """メールアドレス更新リクエストボディDTO.
+
+    Attributes:
+        display_name (str | None): 表示名.
+    """
+
+    display_name: str | None = None
