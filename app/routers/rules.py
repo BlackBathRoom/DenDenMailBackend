@@ -69,6 +69,23 @@ def update_dictionary(
     )
 
 
+@router.delete("/dictionaries/{dictionary_id}", summary="登録済み辞書の削除")
+def delete_dictionary(
+    dictionary_id: int,
+    engine: Annotated[Engine, Depends(get_engine)],
+) -> Response:
+    manager = PriorityWordDBManager()
+    if not manager.exists(engine, dictionary_id):
+        logger.warning("Dictionary ID %s is not registered", dictionary_id)
+        raise HTTPException(status_code=400, detail=f"Dictionary ID {dictionary_id} is not registered") from None
+    try:
+        manager.delete_by_id(engine, dictionary_id)
+    except SQLAlchemyError as exc:
+        logger.exception("Failed to delete dictionary entry")
+        raise HTTPException(status_code=500, detail="Failed to delete dictionary entry") from exc
+    return Response(status_code=200, content="Deleted successfully")
+
+
 @router.post("/addresses", summary="アドレスに新しい優先度設定を登録")
 def create_address(
     body: CreateAddressRequestBody,
@@ -127,3 +144,20 @@ def update_address(
         address_id,
         PriorityPersonUpdate(priority=body.priority),
     )
+
+
+@router.delete("/addresses/{address_id}", summary="登録済みアドレスの優先度設定を削除")
+def delete_address(
+    address_id: int,
+    engine: Annotated[Engine, Depends(get_engine)],
+) -> Response:
+    manager = PriorityPersonDBManager()
+    if not manager.is_registered(engine, address_id):
+        logger.warning("Address ID %s is not registered as priority", address_id)
+        raise HTTPException(status_code=400, detail=f"Address ID {address_id} is not registered as priority") from None
+    try:
+        manager.delete_by_id(engine, address_id)
+    except SQLAlchemyError as exc:
+        logger.exception("Failed to delete address entry")
+        raise HTTPException(status_code=500, detail="Failed to delete address entry") from exc
+    return Response(status_code=200, content="Deleted successfully")
