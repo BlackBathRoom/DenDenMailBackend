@@ -4,16 +4,13 @@ from typing import TYPE_CHECKING, override
 
 from langchain_core.messages import HumanMessage
 from langchain_core.prompts import PromptTemplate
-from langchain_huggingface import ChatHuggingFace
 from langgraph.graph import END, START
 from pydantic import BaseModel, Field
 
-from services.ai.shared.ai_models import OpenVINOModels
+from app_resources import app_resources
 from services.ai.shared.base import BaseGraph, BaseState
-from services.ai.shared.base import OpenVINOLLM as BaseOV
 
 if TYPE_CHECKING:
-    from langchain_core.runnables import Runnable
     from langgraph.graph import StateGraph
 
 
@@ -24,23 +21,6 @@ class SummarizeAgentState(BaseState[str]):
 class ResponseFormatter(BaseModel):
     summary: str = Field(..., description="result of summarization")
 
-
-class Phi4Mini(BaseOV):
-    """設定をPhi-4-mini用に調整したクラス."""
-
-    @property
-    @override
-    def llm(self) -> Runnable:
-        return ChatHuggingFace(llm=self.ov_llm).bind(skip_prompt=True)
-
-
-# TODO: パラメータは要検討 # noqa: FIX002
-llm = Phi4Mini.from_model(
-    OpenVINOModels.PHI_4_MINI_INSTRUCT,
-    max_new_tokens=65536,
-    do_sample=True,
-    temperature=0.1,
-).llm
 
 system_message = """# Instruction
 Please summarize the user message in its original language according to the following points.
@@ -84,9 +64,20 @@ class SummarizeAgentGraph(BaseGraph[SummarizeAgentState, str]):
         return builder
 
     def _summarize(self, state: SummarizeAgentState) -> SummarizeAgentState:
+        model = app_resources.get_model().with_structured_output(ResponseFormatter)
         formatted_message = prompt.format_prompt(source_text=state["source_text"])
-        resp = llm.invoke([HumanMessage(content=formatted_message.to_string())])
-        return {**state, "result": resp.content}
+        resp = model.invoke([HumanMessage(content=formatted_message.to_string())])
+
+        result: str
+        if isinstance(resp, ResponseFormatter):
+            result = resp.summary
+        elif not isinstance(resp, BaseModel) and resp.get("summary") is not None:
+            result = resp["summary"]
+        else:
+            msg = "Unexpected response format from the model."
+            raise TypeError(msg)
+
+        return {**state, "result": result}
 
 
 if __name__ == "__main__":
@@ -111,7 +102,7 @@ if __name__ == "__main__":
 ―――――――――――
 Fuga株式会社　bar
 """  # noqa: RUF001
-
+    app_resources.load_model()
     graph = SummarizeAgentGraph()
     state = SummarizeAgentState(source_text=sample_mail)
     result = graph.invoke(state)
