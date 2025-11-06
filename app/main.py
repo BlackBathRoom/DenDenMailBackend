@@ -1,10 +1,11 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import BackgroundTasks, FastAPI
 from sqlmodel import SQLModel
 from starlette.middleware.cors import CORSMiddleware
 
+from app_resources import app_resources
 from routers import messages_router, rules_router, summary_router
 from services.database.engine import get_engine
 from services.database.seed import seed_core_data
@@ -26,6 +27,10 @@ async def lifespan(_: FastAPI) -> AsyncGenerator:
         engine.dispose()
 
 
+def startup() -> None:
+    app_resources.load_model()
+
+
 def setup_server() -> FastAPI:
     """Setup the FastAPI server with CORS middleware."""
     # NOTE: lifespan 引数のtypo修正 (license -> lifespan)
@@ -37,6 +42,11 @@ def setup_server() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @app.post("/trigger-startup")
+    async def trigger_startup(background_tasks: BackgroundTasks) -> dict[str, str]:
+        background_tasks.add_task(startup)
+        return {"status": "startup triggered"}
 
     routers = [
         ("api", messages_router),
