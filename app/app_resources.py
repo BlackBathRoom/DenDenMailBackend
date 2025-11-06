@@ -59,8 +59,7 @@ class AppResources:
             ov_llm = OpenVINOLLM.from_model_path(model_path, device=_resolve_device())
             loaded_model = AIModel(llm=ov_llm, verbose=True)
             self.model = loaded_model
-
-        self.model.switch_status("ready")
+            self.model.switch_status("ready")
         return self.model
 
     def get_model(self) -> AIModel:
