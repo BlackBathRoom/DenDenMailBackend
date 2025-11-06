@@ -1,27 +1,17 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, NotRequired, Self, TypedDict, TypeVar, Unpack
+from typing import TYPE_CHECKING, Any, NotRequired, TypedDict, TypeVar
 
-from langchain_huggingface import ChatHuggingFace, HuggingFacePipeline
 from langgraph.graph import StateGraph
-from transformers.pipelines import pipeline
 
-from app_conf import OV_CONFIG
-from services.ai.shared.load_model import load_ov_model
 from utils.check_implementation import check_implementation
 from utils.logging import get_logger
 
 if TYPE_CHECKING:
     from langchain_core.messages import BaseMessage
-    from langchain_core.runnables import Runnable
     from langgraph.graph.state import CompiledStateGraph
-    from optimum.modeling_base import OptimizedModel
     from pydantic import BaseModel
-    from transformers.tokenization_utils import PreTrainedTokenizer
-    from transformers.tokenization_utils_fast import PreTrainedTokenizerFast
-
-    from services.ai.shared.ai_models import OpenVINOModels
 
 logger = get_logger(__name__)
 
@@ -107,44 +97,3 @@ class BaseGraph[TState: BaseState[str], TReturn: GraphReturn](ABC):
             return resp["result"]
         logger.warning("No result found in the final state.")
         return None
-
-
-# TODO: 各パラメータの詳細な型定義  # noqa: FIX002
-class PipelineParams(TypedDict, total=False):
-    max_new_tokens: int
-    do_sample: bool
-    top_k: int
-    top_p: float
-    temperature: float
-    repetition_penalty: float
-
-
-class OpenVINOLLM:
-    def __init__(
-        self,
-        optimized_model: OptimizedModel,
-        tokenizer: PreTrainedTokenizer | PreTrainedTokenizerFast,
-        **kwargs: Unpack[PipelineParams],
-    ) -> None:
-        self.optimized_model = optimized_model
-        self.tokenizer = tokenizer
-        self.params = kwargs
-        self.ov_llm = self._init_ov_llm()
-
-    def _init_ov_llm(self) -> HuggingFacePipeline:
-        return HuggingFacePipeline(
-            pipeline=pipeline(
-                task="text-generation",
-                model=self.optimized_model,  # type: ignore[arg-type]
-                tokenizer=self.tokenizer,
-                **self.params,
-            )
-        )
-
-    @property
-    def llm(self) -> Runnable:
-        return ChatHuggingFace(llm=self.ov_llm)
-
-    @classmethod
-    def from_model(cls, model: OpenVINOModels, **kwargs: Unpack[PipelineParams]) -> Self:
-        return cls(*load_ov_model(model, OV_CONFIG), **kwargs)
