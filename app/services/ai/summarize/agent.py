@@ -71,8 +71,8 @@ class SummarizeAgentGraph(BaseGraph[SummarizeAgentState, str]):
         result: str
         if isinstance(resp, ResponseFormatter):
             result = resp.summary
-        elif isinstance(resp, dict) and resp.get("summary") is not None:
-            result = resp["summary"]
+        elif isinstance(resp, dict) and (r := resp.get("summary")) is not None and isinstance(r, str):
+            result = r
         else:
             msg = "Unexpected response format from the model."
             raise TypeError(msg)
