@@ -43,6 +43,9 @@ class AppResources:
             return
 
         with self.load_lock:
+            if self.model is not None:
+                return
+
             logger.info("Loading AI model.")
             model_path = _load_model(repo_id=OpenVINOModels.QWEN3_8B.value, download_path=AI_MODEL_PATH)
             ov_llm = OpenVINOLLM.from_model_path(model_path, device=_resolve_device())
