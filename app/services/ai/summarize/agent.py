@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, override
 
-from langchain_core.messages import HumanMessage
 from langchain_core.prompts import PromptTemplate
 from langgraph.graph import END, START
 from pydantic import BaseModel, Field
@@ -19,14 +18,15 @@ class SummarizeAgentState(BaseState[str]):
 
 
 class ResponseFormatter(BaseModel):
-    summary: str = Field(..., description="result of summarization")
+    summary: str = Field(..., description="result of summarization", min_length=1, max_length=300)
 
 
 system_message = """# Instruction
-Please summarize the user message in its original language according to the following points.
+Please summarize the Source Text in its original language according to the following Key Points.
 You should output only the summary without any additional information.
+The preferred length for summaries is 1 to 300 characters.
 
-## Key Points for Summarization
+## Key Points
 
 1. Capture the overall picture
 - Purpose (what the document is for)
@@ -45,7 +45,7 @@ You should output only the summary without any additional information.
 ## Source Text
 {source_text}"""
 
-prompt = PromptTemplate(template=system_message, input_variables=["source_text"])
+prompt_template = PromptTemplate(template=system_message, input_variables=["source_text"])
 
 
 class SummarizeAgentGraph(BaseGraph[SummarizeAgentState, str]):
@@ -65,14 +65,14 @@ class SummarizeAgentGraph(BaseGraph[SummarizeAgentState, str]):
 
     def _summarize(self, state: SummarizeAgentState) -> SummarizeAgentState:
         model = app_resources.get_model().with_structured_output(ResponseFormatter)
-        formatted_message = prompt.format_prompt(source_text=state["source_text"])
-        resp = model.invoke([HumanMessage(content=formatted_message.to_string())])
+        prompt = prompt_template.format_prompt(source_text=state["source_text"])
+        resp = model.invoke(prompt)
 
         result: str
         if isinstance(resp, ResponseFormatter):
             result = resp.summary
-        elif isinstance(resp, dict) and resp.get("summary") is not None:
-            result = resp["summary"]
+        elif isinstance(resp, dict) and (r := resp.get("summary")) is not None and isinstance(r, str):
+            result = r
         else:
             msg = "Unexpected response format from the model."
             raise TypeError(msg)

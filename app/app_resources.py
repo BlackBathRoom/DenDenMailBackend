@@ -1,5 +1,5 @@
 from threading import Lock
-from typing import Literal, Self
+from typing import Self
 
 from langchain_openvino_genai import ChatOpenVINO, OpenVINOLLM
 from langchain_openvino_genai.load_model import load_model as _load_model
@@ -11,15 +11,6 @@ from services.ai.shared.ai_models import OpenVINOModels
 from utils.logging import get_logger
 
 logger = get_logger(__name__)
-
-type ModelStatus = Literal["idle", "loading", "ready"]
-
-
-class AIModel(ChatOpenVINO):
-    status: ModelStatus = "idle"
-
-    def switch_status(self, new_status: ModelStatus) -> None:
-        self.status = new_status
 
 
 def _resolve_device() -> str:
@@ -36,7 +27,8 @@ def _resolve_device() -> str:
 class AppResources:
     _instance: Self | None = None
 
-    model: AIModel | None = None
+    model: OpenVINOLLM | None = None
+    chat_model: ChatOpenVINO | None = None
     load_lock: Lock
 
     def __new__(cls) -> Self:
@@ -45,29 +37,33 @@ class AppResources:
             cls._instance.load_lock = Lock()
         return cls._instance
 
-    def load_model(self) -> AIModel:
+    def load_model(self) -> None:
         """Load the shared AI model if necessary and return it."""
-        if self.model is not None and self.model.status != "idle":
-            return self.model
+        if self.model is not None:
+            return
 
         with self.load_lock:
-            if self.model is not None and self.model.status == "ready":
-                return self.model
+            if self.model is not None:
+                return
 
             logger.info("Loading AI model.")
-            model_path = _load_model(repo_id=OpenVINOModels.PHI_4_MINI_INSTRUCT.value, download_path=AI_MODEL_PATH)
+            model_path = _load_model(repo_id=OpenVINOModels.QWEN3_8B.value, download_path=AI_MODEL_PATH)
             ov_llm = OpenVINOLLM.from_model_path(model_path, device=_resolve_device())
-            loaded_model = AIModel(llm=ov_llm, verbose=True)
-            self.model = loaded_model
-            self.model.switch_status("ready")
-        return self.model
+            loaded_model = ChatOpenVINO(llm=ov_llm)
+            self.model = ov_llm
+            self.chat_model = loaded_model
 
-    def get_model(self) -> AIModel:
+    def get_model(self) -> OpenVINOLLM:
         """Return a ready-to-use AI model, loading it on demand."""
         if self.model is None:
             msg = "Model is not loaded yet."
             raise ModelNotLoadedError(msg)
         return self.model
+
+    def get_chat_model(self) -> ChatOpenVINO:
+        if self.chat_model is None:
+            self.chat_model = ChatOpenVINO(llm=self.model)
+        return self.chat_model
 
 
 app_resources = AppResources()
