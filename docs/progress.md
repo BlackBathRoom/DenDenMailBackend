@@ -51,11 +51,11 @@
 
 ### M4: スコアリング・検索
 - [ ] クエリAPIの設計（ページング/並び替え/既読フィルタ）
-- 完了: M0（ドキュメント土台）、M1（モデル定義）
+- 完了: M0（ドキュメント土台）、M1（モデル定義）、M3追加（ベクトル化ワークフロー・実験検証）
 - 進行中: M2（取得/解析 一部）、M5（API）、M7（ログ・永続化）
 - ブロック: なし
 - DoD: 指定条件で安定して並べ替えが可能で、ベンチマークで1000通規模でも体感的に速いです。
-総合進捗（目安）: 5/10 マイルストーン
+総合進捗（目安）: 6/10 マイルストーン + 1追加マイルストーン完了
 ### M5: API（FastAPI）
 
 - [x] メッセージ一覧/詳細/本文パーツ取得
@@ -118,6 +118,19 @@
 	- 現状: ユースケース `create_summary` にて `SummaryDBManager.add_summary` を通じて保存します（既存があれば再利用）。
 - [x] **2-4: API エンドポイントの作成**
     - 現状: `GET /summary/{message_id}` と `POST /summary/{message_id}` を実装しました。ユースケース例外を 404/400/409 に正規化して応答します。text/plain を持たないメールは 400（PlainTextRequiredError）となります。
+
+### M3追加: ベクトル化ワークフロー（実験・検証）
+- [x] **3-1: EMLデモファイル用ユーティリティ**
+	- [x] `demo/generator.py` でデモEML生成（日本語Base64対応）
+	- [x] `demo/eml_reader.py` でEML読み込み・解析機能
+	- 現状: 3種類のサンプルメール（新機能リリース、会議、メンテナンス）を生成・読み込み可能
+- [x] **3-2: LangChain Document変換実装（Step 1-4, 1-5）**
+	- [x] `demo/document_processor.py` で `EMLDocumentProcessor` クラス実装
+	- [x] Step 1-4: `format_page_content()` でメールデータを検索用テキストに整形
+	- [x] Step 1-5: `create_document()` でLangChain Documentオブジェクト作成
+	- [x] 日本語Base64ヘッダーのデコード対応（件名・送信者情報）
+	- [x] 統合テスト完了: `demo/integration_test.py` で全工程テスト済み
+	- DoD: EMLファイル3件すべてでDocument変換が成功し、日本語コンテンツが正しく整形されることを確認
 
 補足（M4との関係）
 - [~] クエリAPIの設計（ページング/並び替え/既読フィルタ）
