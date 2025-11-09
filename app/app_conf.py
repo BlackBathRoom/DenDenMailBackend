@@ -42,9 +42,6 @@ AI_MODEL_PATH = BASE_DIR / "ai_models"
 # database
 DB_PATH = BASE_DIR / "database" / "db.sqlite3"
 
-# OpenVINO
-OV_CONFIG = {"PERFORMANCE_HINT": "LATENCY", "NUM_STREAMS": "1", "CACHE_DIR": ""}
-
 # HTML sanitize (bleach) configuration
 # - EXTRA_TAGS: bleach の既定タグに union して使用します
 # - ALLOWED_ATTRS / ALLOWED_PROTOCOLS: そのまま使用します
