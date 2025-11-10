@@ -437,8 +437,126 @@ type SummaryResponse = { content: string };
 type CreateSummaryRequest = undefined;
 ```
 
+---
+
+## チャット(chat)
+
+### チャットストリーミング(SSE)
+
+- エンドポイント：`POST /api/chat/stream`
+- 概要：ユーザーの質問に対してSSE(Server-Sent Events)形式でストリーミング応答を返します
+- リクエストボディ（例）：
+
+```json
+{
+  "message": "でんでんメールの特徴を教えてください",
+  "context": "メール管理アプリについて"
+}
+```
+
+- レスポンス：`text/event-stream`形式のSSEストリーム
+- イベントタイプ：
+  - `start`: ストリーム開始
+  - `message`: テキストチャンク（data: {"chunk": "...", "final": bool}）
+  - `done`: ストリーム完了
+  - `error`: エラー発生（data: {"detail": "..."}）
+
+```
+event: start
+data: {}
+
+event: message
+data: {"chunk": "ご質問ありがとうございます。", "final": false}
+
+event: message
+data: {"chunk": "でんでんメールは...", "final": false}
+
+event: message
+data: {"chunk": "", "final": true}
+
+event: done
+data: {}
+```
+
+型定義（TypeScript）：
+
+```typescript
+// Request Body
+type ChatStreamRequest = {
+  message: string;
+  context?: string | null;
+};
+
+// SSE Events
+type ChatStreamStartEvent = {
+  event: "start";
+  data: {};
+};
+
+type ChatStreamMessageEvent = {
+  event: "message";
+  data: {
+    chunk: string;
+    final: boolean;
+  };
+};
+
+type ChatStreamDoneEvent = {
+  event: "done";
+  data: {};
+};
+
+type ChatStreamErrorEvent = {
+  event: "error";
+  data: {
+    detail: string;
+  };
+};
+```
+
+---
+
+### チャット送信(非ストリーミング)
+
+- エンドポイント：`POST /api/chat/`
+- 概要：ユーザーの質問に対して完全な応答を一度に返します
+- リクエストボディ（例）：
+
+```json
+{
+  "message": "このアプリの使い方は?",
+  "context": "初めて使います"
+}
+```
+
+- レスポンス（例）：
+
+```json
+{
+  "response": "でんでんメールをご利用いただきありがとうございます。このアプリは..."
+}
+```
+
+型定義（TypeScript）：
+
+```typescript
+// Request Body
+type ChatRequest = {
+  message: string;
+  context?: string | null;
+};
+
+// Response
+type ChatResponse = {
+  response: string;
+};
+```
+
+---
+
 ## 備考
 
 - CORS は全許可で設定しています（開発用途）。
 - 取り込みは現在 Thunderbird ベースの実装を提供し、ベンダー登録時に最新約100件の取り込みを試行します。
+- チャット機能は現在モック実装で、`USE_MOCK_CHAT=1`環境変数でモードを制御できます。
 - 本ドキュメントは現行実装に追従して更新しています。今後の拡張に伴い、仕様との差分項目は順次解消していきます。
