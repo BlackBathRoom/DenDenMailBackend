@@ -131,6 +131,13 @@
 	- [x] 日本語Base64ヘッダーのデコード対応（件名・送信者情報）
 	- [x] 統合テスト完了: `demo/integration_test.py` で全工程テスト済み
 	- DoD: EMLファイル3件すべてでDocument変換が成功し、日本語コンテンツが正しく整形されることを確認
+- [x] **3-3: OpenVINO RURI_v3埋め込みサービス実装**
+	- [x] `app/services/ai/rag/embedding/openvino_ruri_v3_embedding.py` でOpenVINO最適化埋め込みサービス実装
+	- [x] OpenVINORURIv3EmbeddingService クラス: 単一/バッチドキュメント埋め込み、類似度計算、性能ベンチマークを提供
+	- [x] Hugging Face → OpenVINO 自動変換: multilingual-e5-base モデル (768次元) をOpenVINO形式に最適化
+	- [x] デバイス最適化: CPU/GPU/AUTO選択、パフォーマンスヒント設定
+	- [x] 統合テスト完了: `app/services/ai/rag/embedding/test_openvino_ruri_v3.py` で全機能テスト済み (3/3テスト成功)
+	- DoD: OpenVINO最適化によりCPU上で高速な埋め込み処理が可能、文字列ドキュメントから768次元ベクトルへの変換機能が完全動作
 
 補足（M4との関係）
 - [~] クエリAPIの設計（ページング/並び替え/既読フィルタ）
