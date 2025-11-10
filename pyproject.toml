@@ -12,9 +12,11 @@ dependencies = [
     "langchain-huggingface>=0.3.1",
     "langchain-openvino-genai",
     "langgraph>=0.6.6",
+    "openvino>=2025.3.0",
     "optimum[nncf,openvino]>=1.27.0",
     "pydantic[email]>=2.11.7",
     "sqlmodel>=0.0.24",
+    "transformers>=4.53.3",
 ]
 
 [dependency-groups]
