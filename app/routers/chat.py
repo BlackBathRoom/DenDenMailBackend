@@ -1,5 +1,3 @@
-"""チャットAPIのルーター."""
-
 import json
 
 from collections.abc import AsyncIterator
