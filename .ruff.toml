@@ -24,12 +24,10 @@ unfixable = [
 convention = "google"
 
 [lint.per-file-ignores]
-"tests/**/*.py" = [
-    "D",
-    "S101",
-    "N802",
-    "ARG",
-]
+"app/main.py" = ["PLC0415"]  # Allow lazy import for optional dependencies
+"app/usecases/summary.py" = ["PLC0415"]  # Allow lazy import for optional AI deps
+"app/usecases/chat.py" = ["S311"]  # Allow random for mock responses
+"app/services/database/manager/summary_manager.py" = []  # No special ignores needed
 "study/**/*.py" = ["ALL"]
 "**/migrations/*.py" = ["ALL"]
 
