@@ -6,7 +6,7 @@ from sqlmodel import SQLModel
 from starlette.middleware.cors import CORSMiddleware
 
 from app_resources import app_resources
-from routers import messages_router, rules_router, summary_router
+from routers import messages_router, rules_router, search_router, summary_router
 from services.database.engine import get_engine
 from services.database.seed import seed_core_data
 from utils.logging import get_logger
@@ -51,6 +51,7 @@ def setup_server() -> FastAPI:
     routers = [
         ("api", messages_router),
         ("api", rules_router),
+        ("api", search_router),
         ("api", summary_router),
     ]
 
