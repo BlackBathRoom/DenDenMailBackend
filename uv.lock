@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.13'",
@@ -27,9 +27,11 @@ dependencies = [
     { name = "langchain-huggingface" },
     { name = "langchain-openvino-genai" },
     { name = "langgraph" },
+    { name = "openvino" },
     { name = "optimum", extra = ["nncf", "openvino"] },
     { name = "pydantic", extra = ["email"] },
     { name = "sqlmodel" },
+    { name = "transformers" },
 ]
 
 [package.dev-dependencies]
@@ -51,9 +53,11 @@ requires-dist = [
     { name = "langchain-huggingface", specifier = ">=0.3.1" },
     { name = "langchain-openvino-genai", git = "https://github.com/KTC-Security-Circle/langchain-openvino-genai.git" },
     { name = "langgraph", specifier = ">=0.6.6" },
+    { name = "openvino", specifier = ">=2025.3.0" },
     { name = "optimum", extras = ["nncf", "openvino"], specifier = ">=1.27.0" },
     { name = "pydantic", extras = ["email"], specifier = ">=2.11.7" },
     { name = "sqlmodel", specifier = ">=0.0.24" },
+    { name = "transformers", specifier = ">=4.53.3" },
 ]
 
 [package.metadata.requires-dev]
