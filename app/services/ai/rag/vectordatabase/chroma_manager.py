@@ -11,6 +11,19 @@ from services.ai.rag.vectordatabase.chroma_client import get_chroma_client
 from utils.logging import get_logger
 
 
+class VectorMetadata(TypedDict, total=False):
+    """ベクトルデータに付与するメタデータの型定義.
+
+    total=Falseにより、全てのフィールドがオプショナルになります。
+    プロジェクトの要件に応じてフィールドを追加してください。
+    """
+
+    source: str  # データの出所 (例: "email", "document")
+    timestamp: str  # タイムスタンプ (ISO 8601形式)
+    category: str  # カテゴリ
+    tags: list[str]  # タグのリスト
+
+
 class QueryResult(TypedDict):
     """ChromaDB クエリ結果の型定義."""
 
@@ -43,7 +56,7 @@ class ChromaVectorManager:
         ids: list[str],
         embeddings: list[Sequence[float]],
         documents: list[str] | None = None,
-        metadatas: list[dict[str, Any]] | None = None,
+        metadatas: list[VectorMetadata | dict[str, Any]] | None = None,
     ) -> None:
         """ベクトル化済みデータをChromaDBに追加.
 
@@ -51,7 +64,8 @@ class ChromaVectorManager:
             ids (list[str]): ドキュメントの一意ID (例: ["msg_1", "msg_2"])
             embeddings (list[Sequence[float]]): ベクトル化済みデータ
             documents (list[str] | None): 元のテキスト(省略可)
-            metadatas (list[dict[str, Any]] | None): メタデータ(省略可)
+            metadatas (list[VectorMetadata | dict[str, Any]] | None): メタデータ(省略可)
+                VectorMetadataを使用することで型安全性が向上します
         """
         try:
             self.collection.add(
@@ -120,7 +134,7 @@ class ChromaVectorManager:
         ids: list[str],
         embeddings: list[Sequence[float]] | None = None,
         documents: list[str] | None = None,
-        metadatas: list[dict[str, Any]] | None = None,
+        metadatas: list[VectorMetadata | dict[str, Any]] | None = None,
     ) -> None:
         """既存のベクトルを更新.
 
@@ -128,7 +142,8 @@ class ChromaVectorManager:
             ids (list[str]): 更新するドキュメントID
             embeddings (list[Sequence[float]] | None): 新しいベクトル(省略可)
             documents (list[str] | None): 新しいテキスト(省略可)
-            metadatas (list[dict[str, Any]] | None): 新しいメタデータ(省略可)
+            metadatas (list[VectorMetadata | dict[str, Any]] | None): 新しいメタデータ(省略可)
+                VectorMetadataを使用することで型安全性が向上します
         """
         try:
             self.collection.update(
