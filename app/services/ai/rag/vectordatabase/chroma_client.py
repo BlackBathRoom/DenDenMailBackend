@@ -30,16 +30,20 @@ class ChromaClient:
     def __init__(self) -> None:
         """クライアントを初期化."""
         if self._client is None:
-            self._initialize_client()
+            self._client = self._initialize_client()
 
-    def _initialize_client(self) -> None:
-        """ChromaDBクライアントを初期化."""
+    def _initialize_client(self) -> "ClientAPI":
+        """ChromaDBクライアントを初期化.
+
+        Returns:
+            ClientAPI: 初期化されたChromaDBクライアント
+        """
         # データベースディレクトリを作成
         CHROMA_DB_PATH.mkdir(parents=True, exist_ok=True)
 
         logger.info("Initializing ChromaDB at: %s", CHROMA_DB_PATH)
 
-        self._client = chromadb.PersistentClient(
+        return chromadb.PersistentClient(
             path=str(CHROMA_DB_PATH),
             settings=Settings(
                 anonymized_telemetry=False,
@@ -55,8 +59,8 @@ class ChromaClient:
             ClientAPI: ChromaDBクライアント
         """
         if self._client is None:
-            self._initialize_client()
-        return self._client  # type: ignore[return-value]
+            self._client = self._initialize_client()
+        return self._client
 
     def get_or_create_collection(self, name: str, metadata: dict[str, Any] | None = None) -> chromadb.Collection:
         """コレクションを取得または作成.
