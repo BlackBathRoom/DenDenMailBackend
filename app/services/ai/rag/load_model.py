@@ -9,7 +9,7 @@ from sentence_transformers import (
     export_static_quantized_openvino_model,
 )
 
-from app_conf import AI_MODEL_PATH
+from app.app_conf import AI_MODEL_PATH
 
 
 class EmbeddingModels(Enum):
