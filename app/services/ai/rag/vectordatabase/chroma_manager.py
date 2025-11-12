@@ -1,9 +1,20 @@
 """ChromaDB データ管理."""
 
-from typing import Any
+from typing import Any, TypedDict
 
 from services.ai.rag.vectordatabase.chroma_client import get_chroma_client
 from utils.logging import get_logger
+
+
+class QueryResult(TypedDict):
+    """ChromaDB クエリ結果の型定義."""
+
+    ids: list[list[str]]
+    distances: list[list[float]] | None
+    documents: list[list[str]] | None
+    metadatas: list[list[dict[str, Any]]] | None
+    embeddings: list[list[list[float]]] | None
+
 
 logger = get_logger(__name__)
 
@@ -54,7 +65,7 @@ class ChromaVectorManager:
         query_embeddings: list[list[float]],
         n_results: int = 10,
         where: dict[str, Any] | None = None,
-    ) -> Any:
+    ) -> QueryResult:
         """ベクトル検索を実行.
 
         Args:
@@ -76,7 +87,7 @@ class ChromaVectorManager:
             raise
         else:
             logger.info("Query returned %d results", len(results["ids"][0]))
-            return results
+            return results  # type: ignore[return-value]
 
     def delete_by_ids(self, ids: list[str]) -> None:
         """指定IDのベクトルを削除.
