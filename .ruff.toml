@@ -32,7 +32,6 @@ convention = "google"
 ]
 "study/**/*.py" = ["ALL"]
 "**/migrations/*.py" = ["ALL"]
-"app/services/ai/rag/vectordatabase/*.py" = ["ANN401"]  # Allow Any for ChromaDB types
 
 [lint.pylint]
 max-args = 6
