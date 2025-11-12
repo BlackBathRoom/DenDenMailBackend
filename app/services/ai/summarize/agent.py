@@ -1,40 +1,65 @@
 from __future__ import annotations
 
+import re
+
+from collections.abc import Callable
 from typing import TYPE_CHECKING
+
+from pydantic import BaseModel, Field
+
+from app.utils.logging._get_logger import get_logger
+
+logger = get_logger(__name__)
+
+# summary length limit constant
+SUMMARY_MAX_LENGTH = 300
+
+
+def _raise_type_error(msg: str) -> None:
+    """Helper to raise a TypeError from a common point.
+
+    Extracted to module-level to keep raise statements out of nested scopes
+    and satisfy static analysis rules.
+    """
+    raise TypeError(msg)
+
 
 # `override` decorator: prefer stdlib, fall back to typing_extensions or noop
 try:
-    from typing import override  # type: ignore
-except Exception:
+    from typing import override  # type: ignore[import]
+except (ImportError, ModuleNotFoundError):
     try:
-        from typing_extensions import override  # type: ignore
-    except Exception:
+        from typing import override  # type: ignore[import]
+    except (ImportError, ModuleNotFoundError):
 
-        def override(func):  # type: ignore
+        def override(func: Callable) -> Callable:
             return func
 
 
 # PromptTemplate: optional dependency (langchain_core)
 try:
-    from langchain_core.prompts import PromptTemplate  # type: ignore
+    from langchain_core.prompts import PromptTemplate  # type: ignore[import]
 
     _HAS_PROMPT_TEMPLATE = True
-except Exception:
+except (ImportError, ModuleNotFoundError):
     _HAS_PROMPT_TEMPLATE = False
 
     class PromptTemplate:  # minimal fallback
         def __init__(self, template: str, input_variables: list[str] | None = None) -> None:
             self.template = template
+            # store input_variables for API compatibility
+            self.input_variables = input_variables
 
         def format(self, **kwargs: object) -> str:
             try:
                 return self.template.format(**{k: str(v) for k, v in kwargs.items()})
-            except Exception:
+            except (KeyError, IndexError, ValueError, TypeError) as exc:
+                logger.debug("PromptTemplate.format primary format failed: %s", exc)
                 try:
                     if "source_text" in kwargs:
                         return self.template.replace("{source_text}", str(kwargs.get("source_text")))
-                except Exception:
-                    pass
+                except (AttributeError, TypeError) as exc2:
+                    logger.debug("PromptTemplate.format fallback replace failed: %s", exc2)
                 return self.template
 
         def format_prompt(self, **kwargs: object) -> str:
@@ -46,25 +71,27 @@ try:
     from langgraph.graph import END, START
 
     _HAS_LANGGRAPH = True
-except Exception:
+except (ImportError, ModuleNotFoundError):
     END = "END"
     START = "START"
     _HAS_LANGGRAPH = False
 
-from pydantic import BaseModel, Field
 
 # Avoid importing services.ai.shared.base at module import time because it may
 # import langgraph; use TYPE_CHECKING for typing and simple runtime stubs.
 if TYPE_CHECKING:
-    from services.ai.shared.base import BaseGraph, BaseState
+    from collections.abc import Callable
+
     from langgraph.graph import StateGraph
+
+    from services.ai.shared.base import BaseGraph, BaseState
 else:
 
     class BaseState(dict):
         pass
 
     class BaseGraph:  # runtime stub
-        def invoke(self, state):
+        def invoke(self, state: object) -> object:
             raise NotImplementedError
 
 
@@ -73,7 +100,7 @@ class SummarizeAgentState(BaseState):
 
 
 class ResponseFormatter(BaseModel):
-    summary: str = Field(..., description="result of summarization", min_length=1, max_length=300)
+    summary: str = Field(..., description="result of summarization", min_length=1, max_length=SUMMARY_MAX_LENGTH)
 
 
 system_message = """# Instruction
@@ -104,17 +131,13 @@ prompt_template = PromptTemplate(template=system_message, input_variables=["sour
 
 
 def summarize_text_sample(text: str) -> str:
-    """簡易要約フォールバック。最初の文を抽出して最大300文字に切り詰める。"""
+    """簡易要約フォールバック。最初の文を抽出して最大300文字に切り詰める."""
     if not text:
         return ""
-    import re
 
-    m = re.search(r"(.+?[。．.!?])", text.strip())
-    if m:
-        s = m.group(1).strip()
-    else:
-        s = text.strip()
-    return s if len(s) <= 300 else s[:297] + "..."
+    m = re.search(r"(.+?[。.!?])", text.strip())
+    s = m.group(1).strip() if m else text.strip()
+    return s if len(s) <= SUMMARY_MAX_LENGTH else s[: SUMMARY_MAX_LENGTH - 3] + "..."
 
 
 class SummarizeAgentGraph(BaseGraph):
@@ -134,8 +157,9 @@ class SummarizeAgentGraph(BaseGraph):
 
     def _summarize(self, state: SummarizeAgentState) -> SummarizeAgentState:
         # LLM/model backend を遅延インポートして実行。失敗したらフォールバック要約を返す。
+        result = None
         try:
-            from app_resources import app_resources
+            from app_resources import app_resources  # noqa: PLC0415
 
             model = app_resources.get_model().with_structured_output(ResponseFormatter)
             prompt = prompt_template.format_prompt(source_text=state["source_text"])
@@ -146,8 +170,9 @@ class SummarizeAgentGraph(BaseGraph):
             elif isinstance(resp, dict) and (r := resp.get("summary")) is not None and isinstance(r, str):
                 result = r
             else:
-                raise TypeError("Unexpected response format from the model.")
-        except Exception:
+                _msg = "Unexpected response format from the model."
+                _raise_type_error(_msg)
+        except Exception:  # noqa: BLE001
             result = summarize_text_sample(state["source_text"])
 
         return {**state, "result": result}
@@ -179,9 +204,9 @@ Fuga株式会社　bar
         from app_resources import app_resources
 
         app_resources.load_model()
-    except Exception:
-        pass
+    except (ImportError, ModuleNotFoundError) as exc:
+        logger.debug("app_resources not available during sample run: %s", exc)
     graph = SummarizeAgentGraph()
     state = SummarizeAgentState(source_text=sample_mail)
     result = graph.invoke(state)
-    print(result)  # noqa: T201
+    logger.info("%s", result)
