@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid
+
 from typing import TYPE_CHECKING, Any, TypedDict
 
 if TYPE_CHECKING:
@@ -53,20 +55,28 @@ class ChromaVectorManager:
 
     def add_vectors(
         self,
-        ids: list[str],
         embeddings: list[Sequence[float]],
         documents: list[str] | None = None,
         metadatas: list[VectorMetadata | dict[str, Any]] | None = None,
-    ) -> None:
+        ids: list[str] | None = None,
+    ) -> list[str]:
         """ベクトル化済みデータをChromaDBに追加.
 
         Args:
-            ids (list[str]): ドキュメントの一意ID (例: ["msg_1", "msg_2"])
             embeddings (list[Sequence[float]]): ベクトル化済みデータ
             documents (list[str] | None): 元のテキスト(省略可)
             metadatas (list[VectorMetadata | dict[str, Any]] | None): メタデータ(省略可)
                 VectorMetadataを使用することで型安全性が向上します
+            ids (list[str] | None): ドキュメントの一意ID。指定がない場合は自動生成されます
+
+        Returns:
+            list[str]: 追加されたドキュメントのIDリスト
         """
+        # IDが指定されていない場合はUUIDで自動生成
+        if ids is None:
+            ids = [str(uuid.uuid4()) for _ in range(len(embeddings))]
+            logger.debug("Generated %d UUIDs for vector IDs", len(ids))
+
         try:
             self.collection.add(
                 ids=ids,
@@ -74,10 +84,12 @@ class ChromaVectorManager:
                 documents=documents,
                 metadatas=metadatas,  # type: ignore[arg-type]
             )
-            logger.info("Added %d vectors to collection '%s'", len(ids), self.collection_name)
         except Exception:
             logger.exception("Failed to add vectors")
             raise
+        else:
+            logger.info("Added %d vectors to collection '%s'", len(ids), self.collection_name)
+            return ids
 
     def query_vectors(
         self,
