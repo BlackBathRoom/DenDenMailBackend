@@ -1,6 +1,11 @@
 """ChromaDB データ管理."""
 
-from typing import Any, TypedDict
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, TypedDict
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 from services.ai.rag.vectordatabase.chroma_client import get_chroma_client
 from utils.logging import get_logger
@@ -36,7 +41,7 @@ class ChromaVectorManager:
     def add_vectors(
         self,
         ids: list[str],
-        embeddings: list[list[float]],
+        embeddings: list[Sequence[float]],
         documents: list[str] | None = None,
         metadatas: list[dict[str, Any]] | None = None,
     ) -> None:
@@ -44,16 +49,16 @@ class ChromaVectorManager:
 
         Args:
             ids (list[str]): ドキュメントの一意ID (例: ["msg_1", "msg_2"])
-            embeddings (list[list[float]]): ベクトル化済みデータ
+            embeddings (list[Sequence[float]]): ベクトル化済みデータ
             documents (list[str] | None): 元のテキスト(省略可)
             metadatas (list[dict[str, Any]] | None): メタデータ(省略可)
         """
         try:
             self.collection.add(
                 ids=ids,
-                embeddings=embeddings,
+                embeddings=embeddings,  # type: ignore[arg-type]
                 documents=documents,
-                metadatas=metadatas,
+                metadatas=metadatas,  # type: ignore[arg-type]
             )
             logger.info("Added %d vectors to collection '%s'", len(ids), self.collection_name)
         except Exception:
@@ -62,14 +67,14 @@ class ChromaVectorManager:
 
     def query_vectors(
         self,
-        query_embeddings: list[list[float]],
+        query_embeddings: list[Sequence[float]],
         n_results: int = 10,
         where: dict[str, Any] | None = None,
     ) -> QueryResult:
         """ベクトル検索を実行.
 
         Args:
-            query_embeddings (list[list[float]]): クエリのベクトル
+            query_embeddings (list[Sequence[float]]): クエリのベクトル
             n_results (int): 取得する結果数
             where (dict[str, Any] | None): メタデータフィルタ(省略可)
 
@@ -113,7 +118,7 @@ class ChromaVectorManager:
     def update_vectors(
         self,
         ids: list[str],
-        embeddings: list[list[float]] | None = None,
+        embeddings: list[Sequence[float]] | None = None,
         documents: list[str] | None = None,
         metadatas: list[dict[str, Any]] | None = None,
     ) -> None:
@@ -121,16 +126,16 @@ class ChromaVectorManager:
 
         Args:
             ids (list[str]): 更新するドキュメントID
-            embeddings (list[list[float]] | None): 新しいベクトル(省略可)
+            embeddings (list[Sequence[float]] | None): 新しいベクトル(省略可)
             documents (list[str] | None): 新しいテキスト(省略可)
             metadatas (list[dict[str, Any]] | None): 新しいメタデータ(省略可)
         """
         try:
             self.collection.update(
                 ids=ids,
-                embeddings=embeddings,
+                embeddings=embeddings,  # type: ignore[arg-type]
                 documents=documents,
-                metadatas=metadatas,
+                metadatas=metadatas,  # type: ignore[arg-type]
             )
             logger.info("Updated %d vectors in collection '%s'", len(ids), self.collection_name)
         except Exception:
