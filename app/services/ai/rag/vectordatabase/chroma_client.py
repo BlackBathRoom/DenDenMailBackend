@@ -74,7 +74,7 @@ class ChromaClient:
         Returns:
             chromadb.Collection: コレクション
         """
-        return self.client.get_or_create_collection(name=name, metadata=metadata or {})
+        return self.client.get_or_create_collection(name=name, metadata=metadata)
 
     def delete_collection(self, name: str) -> None:
         """コレクションを削除.
