@@ -1,6 +1,8 @@
 """ChromaDB クライアント管理."""
 
-from typing import TYPE_CHECKING, Any
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Self
 
 import chromadb
 
@@ -18,21 +20,21 @@ logger = get_logger(__name__)
 class ChromaClient:
     """ChromaDB クライアントのシングルトン管理."""
 
-    _instance: "ChromaClient | None" = None
-    _client: "ClientAPI | None" = None
+    _instance: ChromaClient | None = None
+    _client: ClientAPI | None = None
 
-    def __new__(cls) -> "ChromaClient":
+    def __new__(cls) -> Self:
         """シングルトンインスタンスを返す."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
-        return cls._instance
+        return cls._instance  # type: ignore[return-value]
 
     def __init__(self) -> None:
         """クライアントを初期化."""
         if self._client is None:
             self._client = self._initialize_client()
 
-    def _initialize_client(self) -> "ClientAPI":
+    def _initialize_client(self) -> ClientAPI:
         """ChromaDBクライアントを初期化.
 
         Returns:
@@ -52,7 +54,7 @@ class ChromaClient:
         )
 
     @property
-    def client(self) -> "ClientAPI":
+    def client(self) -> ClientAPI:
         """ChromaDBクライアントを取得.
 
         Returns:
