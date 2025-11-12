@@ -20,7 +20,7 @@ logger = get_logger(__name__)
 class ChromaClient:
     """ChromaDB クライアントのシングルトン管理."""
 
-    _instance: ChromaClient | None = None
+    _instance: Self | None = None
     _client: ClientAPI | None = None
 
     def __new__(cls) -> Self:
