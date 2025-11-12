@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from threading import Lock
-from typing import Self
+from typing import TYPE_CHECKING, Self
 
 from langchain_openvino_genai import ChatOpenVINO, OpenVINOLLM
 from langchain_openvino_genai.load_model import load_model as _load_model
@@ -7,8 +9,13 @@ from openvino import Core
 
 from app_conf import AI_MODEL_PATH
 from errors import ModelNotLoadedError
+from services.ai.rag.load_model import EmbeddingModels
+from services.ai.rag.load_model import load_model as load_embed_model
 from services.ai.shared.ai_models import OpenVINOModels
 from utils.logging import get_logger
+
+if TYPE_CHECKING:
+    from langchain_huggingface import HuggingFaceEmbeddings
 
 logger = get_logger(__name__)
 
@@ -29,6 +36,8 @@ class AppResources:
 
     model: OpenVINOLLM | None = None
     chat_model: ChatOpenVINO | None = None
+    embedding_model: HuggingFaceEmbeddings | None = None
+
     load_lock: Lock
 
     def __new__(cls) -> Self:
@@ -53,6 +62,8 @@ class AppResources:
             self.model = ov_llm
             self.chat_model = loaded_model
 
+            self.embedding_model = load_embed_model(model=EmbeddingModels.RURI_V3_130M)
+
     def get_model(self) -> OpenVINOLLM:
         """Return a ready-to-use AI model, loading it on demand."""
         if self.model is None:
@@ -64,6 +75,12 @@ class AppResources:
         if self.chat_model is None:
             self.chat_model = ChatOpenVINO(llm=self.model)
         return self.chat_model
+
+    def get_embedding_model(self) -> HuggingFaceEmbeddings:
+        if self.embedding_model is None:
+            msg = "Embedding model is not loaded yet."
+            raise ModelNotLoadedError(msg)
+        return self.embedding_model
 
 
 app_resources = AppResources()
