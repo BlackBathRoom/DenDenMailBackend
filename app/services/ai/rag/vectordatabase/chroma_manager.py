@@ -4,26 +4,82 @@ from __future__ import annotations
 
 import uuid
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, TypedDict
-
-if TYPE_CHECKING:
-    from collections.abc import Sequence
 
 from services.ai.rag.vectordatabase.chroma_client import get_chroma_client
 from utils.logging import get_logger
 
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
-class VectorMetadata(TypedDict, total=False):
-    """ベクトルデータに付与するメタデータの型定義.
 
-    total=Falseにより、全てのフィールドがオプショナルになります。
-    プロジェクトの要件に応じてフィールドを追加してください。
+class VectorMetadata(TypedDict):
+    """ベクトルデータに付与するメタデータの型定義 (固定フィールド)."""
+
+    message_id: str  # メッセージID (必須)
+    section_number: int  # セクション番号 (必須)
+
+
+@dataclass
+class VectorDocument:
+    """ベクトルデータベースに格納する単一ドキュメント.
+
+    embedding、message_id、section_numberは必須です。
+    IDは自動生成されますが、明示的に指定することも可能です。
     """
 
-    source: str  # データの出所 (例: "email", "document")
-    timestamp: str  # タイムスタンプ (ISO 8601形式)
-    category: str  # カテゴリ
-    tags: list[str]  # タグのリスト
+    embedding: Sequence[float]  # ベクトル (必須)
+    message_id: str  # メッセージID (必須)
+    section_number: int  # セクション番号 (必須)
+    document: str | None = None  # テキスト内容 (オプション)
+    id: str = ""  # ドキュメントID (空文字列の場合は自動生成)
+
+    def __post_init__(self) -> None:
+        """初期化後の処理でIDを自動生成."""
+        if not self.id:
+            self.id = str(uuid.uuid4())
+
+    @property
+    def metadata(self) -> VectorMetadata:
+        """メタデータを返す."""
+        return {
+            "message_id": self.message_id,
+            "section_number": self.section_number,
+        }
+
+
+@dataclass
+class SearchResultItem:
+    """検索結果の単一アイテム."""
+
+    id: str
+    distance: float
+    document: str | None
+    message_id: str
+    section_number: int
+    embedding: list[float] | None = None
+
+    @classmethod
+    def from_query_result(cls, query_result: QueryResult, index: int) -> SearchResultItem:
+        """QueryResultの指定インデックスから生成.
+
+        Args:
+            query_result: ChromaDBからのクエリ結果
+            index: 結果リスト内のインデックス
+
+        Returns:
+            SearchResultItem: 検索結果アイテム
+        """
+        metadata = query_result["metadatas"][0][index] if query_result["metadatas"] else {}
+        return cls(
+            id=query_result["ids"][0][index],
+            distance=query_result["distances"][0][index] if query_result["distances"] else 0.0,
+            document=query_result["documents"][0][index] if query_result["documents"] else None,
+            message_id=str(metadata.get("message_id", "")),
+            section_number=int(metadata.get("section_number", 0)),
+            embedding=query_result["embeddings"][0][index] if query_result["embeddings"] else None,
+        )
 
 
 class QueryResult(TypedDict):
@@ -76,7 +132,6 @@ class ChromaVectorManager:
         if ids is None:
             ids = [str(uuid.uuid4()) for _ in range(len(embeddings))]
             logger.debug("Generated %d UUIDs for vector IDs", len(ids))
-
         try:
             self.collection.add(
                 ids=ids,
@@ -90,6 +145,38 @@ class ChromaVectorManager:
         else:
             logger.info("Added %d vectors to collection '%s'", len(ids), self.collection_name)
             return ids
+
+    def add_documents(self, documents: list[VectorDocument]) -> list[str]:
+        """VectorDocumentのリストを一括追加 (推奨メソッド).
+
+        このメソッドを使用することで、ID、embedding、document、metadataが
+        常に対応していることが保証されます。
+
+        Args:
+            documents (list[VectorDocument]): 追加するドキュメントのリスト
+
+        Returns:
+            list[str]: 追加されたドキュメントのIDリスト
+
+        Example:
+            >>> doc1 = VectorDocument(
+            ...     embedding=[0.1, 0.2, 0.3], message_id="msg_001", section_number=1, document="サンプルテキスト"
+            ... )
+            >>> doc2 = VectorDocument(embedding=[0.4, 0.5, 0.6], message_id="msg_001", section_number=2)
+            >>> manager = ChromaVectorManager()
+            >>> ids = manager.add_documents([doc1, doc2])
+        """
+        ids = [doc.id for doc in documents]
+        embeddings = [doc.embedding for doc in documents]
+        texts = [doc.document for doc in documents] if any(doc.document for doc in documents) else None
+        metadatas: list[VectorMetadata | dict[str, Any]] = [doc.metadata for doc in documents]
+
+        return self.add_vectors(
+            embeddings=embeddings,
+            documents=texts,  # type: ignore[arg-type]
+            metadatas=metadatas,
+            ids=ids,
+        )
 
     def query_vectors(
         self,
@@ -119,6 +206,40 @@ class ChromaVectorManager:
         else:
             logger.info("Query returned %d results", len(results["ids"][0]))
             return results  # type: ignore[return-value]
+
+    def query_documents(
+        self,
+        query_embedding: Sequence[float],
+        n_results: int = 10,
+        message_id: str | None = None,
+    ) -> list[SearchResultItem]:
+        """ベクトル検索を実行し、結果をSearchResultItemのリストで返す (推奨メソッド).
+
+        Args:
+            query_embedding (Sequence[float]): クエリのベクトル
+            n_results (int): 取得する結果数 (デフォルト: 10)
+            message_id (str | None): 特定のメッセージIDでフィルタ (省略可)
+
+        Returns:
+            list[SearchResultItem]: 検索結果のリスト
+
+        Example:
+            >>> manager = ChromaVectorManager()
+            >>> results = manager.query_documents(query_embedding=[0.1, 0.2, 0.3], n_results=5, message_id="msg_001")
+            >>> for result in results:
+            ...     print(f"ID: {result.id}, Distance: {result.distance}")
+            ...     print(f"Message: {result.message_id}, Section: {result.section_number}")
+        """
+        where = {"message_id": message_id} if message_id else None
+
+        query_result = self.query_vectors(
+            query_embeddings=[query_embedding],
+            n_results=n_results,
+            where=where,
+        )
+
+        # QueryResultをSearchResultItemのリストに変換
+        return [SearchResultItem.from_query_result(query_result, i) for i in range(len(query_result["ids"][0]))]
 
     def delete_by_ids(self, ids: list[str]) -> None:
         """指定IDのベクトルを削除.
