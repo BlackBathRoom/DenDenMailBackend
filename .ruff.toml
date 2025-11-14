@@ -31,6 +31,7 @@ convention = "google"
     "ARG",
 ]
 "study/**/*.py" = ["ALL"]
+"examples/**/*.py" = ["ALL"]
 "**/migrations/*.py" = ["ALL"]
 
 [lint.pylint]
