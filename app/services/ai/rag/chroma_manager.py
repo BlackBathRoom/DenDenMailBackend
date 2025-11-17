@@ -7,7 +7,7 @@ from langchain_chroma import Chroma
 
 from app_conf import CHROMA_DB_PATH
 from app_resources import app_resources
-from services.ai.rag.vectordatabase.vector_message import (
+from services.ai.rag.vector_message import (
     VectorMessage,
 )
 from utils.logging import get_logger
