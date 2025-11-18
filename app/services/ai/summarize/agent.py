@@ -6,19 +6,23 @@ from langchain_core.prompts import PromptTemplate
 from langgraph.graph import END, START
 from pydantic import BaseModel, Field
 
-from app_resources import app_resources
 from services.ai.shared.base import BaseGraph, BaseState
+from utils.logging import get_logger
 
 if TYPE_CHECKING:
     from langgraph.graph import StateGraph
 
+logger = get_logger(__name__)
 
-class SummarizeAgentState(BaseState[str]):
+SUMMARY_MAX_LENGTH = 300
+
+
+class SummarizeAgentState(BaseState):
     source_text: str
 
 
 class ResponseFormatter(BaseModel):
-    summary: str = Field(..., description="result of summarization", min_length=1, max_length=300)
+    summary: str = Field(..., description="result of summarization", min_length=1, max_length=SUMMARY_MAX_LENGTH)
 
 
 system_message = """# Instruction
@@ -64,6 +68,7 @@ class SummarizeAgentGraph(BaseGraph[SummarizeAgentState, str]):
         return builder
 
     def _summarize(self, state: SummarizeAgentState) -> SummarizeAgentState:
+
         model = app_resources.get_model().with_structured_output(ResponseFormatter)
         prompt = prompt_template.format_prompt(source_text=state["source_text"])
         resp = model.invoke(prompt)
@@ -102,8 +107,10 @@ if __name__ == "__main__":
 ―――――――――――
 Fuga株式会社　bar
 """  # noqa: RUF001
+    from app_resources import app_resources
+
     app_resources.load_model()
     graph = SummarizeAgentGraph()
     state = SummarizeAgentState(source_text=sample_mail)
     result = graph.invoke(state)
-    print(result)  # noqa: T201
+    logger.info("%s", result)

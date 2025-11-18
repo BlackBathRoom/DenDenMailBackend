@@ -41,6 +41,7 @@ AI_MODEL_PATH = BASE_DIR / "ai_models"
 
 # database
 DB_PATH = BASE_DIR / "database" / "db.sqlite3"
+CHROMA_DB_PATH = BASE_DIR / "database" / "chromadatabase"
 
 # HTML sanitize (bleach) configuration
 # - EXTRA_TAGS: bleach の既定タグに union して使用します

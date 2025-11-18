@@ -25,7 +25,7 @@ class BaseState[R: GraphReturn](TypedDict):
     result: NotRequired[R]
 
 
-class BaseGraph[TState: BaseState[str], TReturn: GraphReturn](ABC):
+class BaseGraph[TState: BaseState, TReturn: GraphReturn](ABC):
     """エージェントの状態遷移グラフの基底クラス.
 
     Usage:
