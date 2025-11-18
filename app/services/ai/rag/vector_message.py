@@ -11,8 +11,8 @@ class VectorMessage(Document):
     def __init__(
         self,
         message: str,
-        message_id: str,
-        section_id: str,
+        message_id: str | None = None,
+        section_id: str | None = None,
     ) -> None:
         super().__init__(
             page_content=message,
@@ -21,6 +21,10 @@ class VectorMessage(Document):
                 "section_id": section_id,
             },
         )
+
+    @property
+    def message(self) -> str:
+        return self.page_content
 
     @property
     def message_id(self) -> str | None:
